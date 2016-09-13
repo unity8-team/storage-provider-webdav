@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(storage-provider-owncloud VERSION "0.1")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pedantic -Wextra -fvisibility=hidden")
+
 include(CTest)
 include(EnableCoverageReport)
 include(FindPkgConfig)
@@ -8,6 +10,7 @@ include(GNUInstallDirs)
 
 enable_testing()
 
+find_package(Boost 1.56 COMPONENTS thread REQUIRED)
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Network REQUIRED)
 pkg_check_modules(SF_PROVIDER REQUIRED storage-framework-provider-1)
