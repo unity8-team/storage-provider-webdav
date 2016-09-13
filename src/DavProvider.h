@@ -2,6 +2,11 @@
 
 #include <unity/storage/provider/ProviderBase.h>
 
+#include <memory>
+
+class QNetworkAccessManager;
+class QNetworkRequest;
+
 class DavProvider : public unity::storage::provider::ProviderBase
 {
 public:
@@ -46,4 +51,13 @@ public:
         std::string const& item_id, std::string const& new_parent_id,
         std::string const& new_name,
         unity::storage::provider::Context const& ctx) override;
+
+protected:
+    virtual std::string base_url(
+        unity::storage::provider::Context const& ctx) const = 0;
+    virtual void add_credentials(QNetworkRequest *request,
+        unity::storage::provider::Context const& ctx) const = 0;
+
+private:
+    std::unique_ptr<QNetworkAccessManager> network_;
 };

@@ -1,10 +1,15 @@
 #include "DavProvider.h"
 
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+
 using namespace std;
 using namespace unity::storage::provider;
 
 DavProvider::DavProvider()
 {
+    network_.reset(new QNetworkAccessManager);
 }
 
 DavProvider::~DavProvider() = default;
