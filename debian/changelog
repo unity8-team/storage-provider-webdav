@@ -1,0 +1,5 @@
+storage-provider-owncloud (0.1-0ubuntu1) UNRELEASED; urgency=medium
+
+  * Initial release.
+
+ -- James Henstridge <james.henstridge@canonical.com>  Wed, 14 Sep 2016 11:05:11 +0800

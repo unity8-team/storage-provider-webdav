@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+export QT_SELECT=qt5
+
+%:
+        dh $@ --parallel --fail-missing
+
+overrid_dh_auto_test:
+	dh_auto_test --max-parallel=1 -- ARGS="--verbose"

@@ -1,0 +1,25 @@
+Source: storage-provider-owncloud
+Section: ???
+Priority: optional
+Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Standards-Version: 3.9.6
+Build-Depends: cmake,
+               cmake-extras (>= 0.4),
+               debhelper (>= 9),
+               storage-framework-provider-dev,
+               qtbase5-dev,
+Homepage: https://launchpad.net/storage-provider-owncloud
+# if you don't have have commit access to this branch but would like to upload
+# directly to Ubuntu, don't worry: your changes will be merged back into the
+# upstream branch
+Vcs-Bzr: lp:storage-provider-owncloud
+
+Package: storage-provider-owncloud
+Architecture: any
+Multi-Arch: foreign
+Pre-Depends: ${misc:Pre-Depends},
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+         account-plugin-owncloud
+Description: Owncloud plugin for Storage Framework
+ A Storage Framework plugin providing access to Owncloud servers.
