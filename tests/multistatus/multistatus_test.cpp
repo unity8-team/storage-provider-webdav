@@ -89,6 +89,19 @@ TEST(MultiStatus, non_multistatus_xml)
     EXPECT_EQ(0, response_spy.count());
 }
 
+TEST(MultiStatus, empty)
+{
+    QBuffer buffer;
+    buffer.open(QIODevice::ReadWrite);
+    MultiStatusParser parser(&buffer);
+    QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
+
+    parser.startParsing();
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
+    EXPECT_EQ("Unexpectedly reached end of input", parser.errorString()) << parser.errorString().toStdString();
+}
+
 TEST(MultiStatus, response_status)
 {
     QBuffer buffer;
@@ -201,7 +214,7 @@ TEST(MultiStatus, response_properties)
     EXPECT_EQ("HTTP/1.1 403 Forbidden", props[3].status);
 }
 
-TEST(MultiStatus, streaming_parse)
+TEST(MultiStatus, incremental_parse)
 {
     static char const first_chunk[] = R"(
      <D:multistatus xmlns:D='DAV:'>
@@ -218,9 +231,8 @@ TEST(MultiStatus, streaming_parse)
        </D:response>
        <D:response>
          <D:href>/container/front.html</D:href>
-         <D:propstat>
-)";
-    static char const second_chunk[] = R"(
+         <D:propst)";
+    static char const second_chunk[] = R"(at>
            <D:prop>
              <D:creationdate>1997-12-01T18:27:21-08:00</D:creationdate>
              <D:displayname>Example HTML resource</D:displayname>
@@ -277,6 +289,45 @@ TEST(MultiStatus, streaming_parse)
     EXPECT_EQ("getetag", props[4].name);
     EXPECT_EQ("getlastmodified", props[5].name);
     EXPECT_EQ("resourcetype", props[6].name);
+}
+
+TEST(MultiStatus, incremental_parse_initially_empty)
+{
+    static char const data[] = R"(
+     <D:multistatus xmlns:D='DAV:'>
+       <D:response>
+         <D:href>/container/</D:href>
+         <D:propstat>
+           <D:prop>
+             <D:creationdate>1997-12-01T17:42:21-08:00</D:creationdate>
+             <D:displayname>Example collection</D:displayname>
+             <D:resourcetype><D:collection/></D:resourcetype>
+           </D:prop>
+           <D:status>HTTP/1.1 200 OK</D:status>
+         </D:propstat>
+       </D:response>
+     </D:multistatus>
+)";
+    QBuffer buffer;
+    buffer.open(QIODevice::ReadWrite);
+
+    MultiStatusParser parser(&buffer);
+    QSignalSpy response_spy(&parser, &MultiStatusParser::response);
+    QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
+
+    parser.startParsing();
+    ASSERT_EQ(0, finished_spy.count()) << parser.errorString().toStdString();
+
+    buffer.write(data);
+    buffer.seek(0);
+    Q_EMIT buffer.readyRead();
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
+    EXPECT_EQ("", parser.errorString()) << parser.errorString().toStdString();
+
+    ASSERT_EQ(1, response_spy.count());
+    QList<QVariant> args = response_spy.takeFirst();
+    EXPECT_EQ("/container/", args[0].value<QString>());
 }
 
 int main(int argc, char**argv)

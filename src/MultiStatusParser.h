@@ -39,10 +39,12 @@ private:
     class Handler;
     friend class Handler;
 
-    QXmlInputSource input_;
+    QIODevice* const input_;
+    QXmlInputSource xmlinput_;
     QXmlSimpleReader reader_;
     std::unique_ptr<Handler> handler_;
     QString error_string_;
+    bool started_ = false;
     bool finished_ = false;
 };
 

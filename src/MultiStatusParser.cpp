@@ -17,7 +17,7 @@ enum class ParseState {
     response,        // Inside <D:response>
     href,            // Inside <D:href>
     propstat,        // Inside <D:propstat>
-    prop,            // Inside <D:prop> 
+    prop,            // Inside <D:prop>
     property,        // Inside a property
     propstat_status, // Inside <D:status> within <D:propstat>
     response_status, // Inside <D:status> within <D:response>
@@ -65,7 +65,8 @@ private:
 
 
 MultiStatusParser::MultiStatusParser(QIODevice* input)
-    : input_(input), handler_(new MultiStatusParser::Handler(this))
+    : input_(input), xmlinput_(input),
+      handler_(new MultiStatusParser::Handler(this))
 {
     assert(input->isReadable());
 
@@ -81,23 +82,35 @@ MultiStatusParser::~MultiStatusParser() = default;
 
 void MultiStatusParser::startParsing()
 {
-    if (!reader_.parse(&input_, true) || !error_string_.isEmpty()) {
-        finished_ = true;
-        Q_EMIT finished();
+    if (input_->bytesAvailable() > 0)
+    {
+        onReadyRead();
     }
 }
 
-QString const& MultiStatusParser::errorString() const {
+QString const& MultiStatusParser::errorString() const
+{
     return error_string_;
 }
 
 void MultiStatusParser::onReadyRead()
 {
-    qDebug() << "onReadyRead";
-    if (finished_) {
+    if (finished_)
+    {
         return;
     }
-    if (!reader_.parseContinue() || !error_string_.isEmpty()) {
+    bool ok;
+    if (!started_)
+    {
+        started_ = true;
+        ok = reader_.parse(&xmlinput_, true);
+    }
+    else
+    {
+        ok = reader_.parseContinue();
+    }
+    if (!ok || !error_string_.isEmpty())
+    {
         finished_ = true;
         Q_EMIT finished();
     }
@@ -105,12 +118,22 @@ void MultiStatusParser::onReadyRead()
 
 void MultiStatusParser::onReadChannelFinished()
 {
-    qDebug() << "onReadChannelFinished";
-    if (finished_) {
+    if (input_->bytesAvailable() > 0)
+    {
+        onReadyRead();
+    }
+    if (finished_)
+    {
         return;
     }
-    if (reader_.parseContinue() && !handler_->atEnd()) {
-        error_string_ = "Reached end of input";
+    // Perform one final call to parseContinue() to signal end of file
+    if (started_)
+    {
+        reader_.parseContinue();
+    }
+    if (error_string_.isEmpty() && !handler_->atEnd())
+    {
+        error_string_ = "Unexpectedly reached end of input";
     }
     finished_ = true;
     Q_EMIT finished();
@@ -131,7 +154,6 @@ bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
     Q_UNUSED(qname);
     Q_UNUSED(attrs);
 
-    qDebug() << "Start" << namespace_uri << local_name;
     // Are we processing an unknown element?
     if (unknown_depth_ > 0)
     {
@@ -249,7 +271,6 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
     Q_UNUSED(local_name);
     Q_UNUSED(qname);
 
-    qDebug() << "End" << namespace_uri << local_name;
     // Are we processing an unknown element?
     if (unknown_depth_ > 0)
     {
