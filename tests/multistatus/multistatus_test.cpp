@@ -134,12 +134,12 @@ TEST(MultiStatus, response_status)
     QList<QVariant> args = response_spy.takeFirst();
     EXPECT_EQ("http://example.com/webdav/secret", args[0].value<QString>());
     EXPECT_EQ(0, args[1].value<vector<MultiStatusProperty>>().size());
-    EXPECT_EQ("HTTP/1.1 403 Forbidden", args[2].value<QString>());
+    EXPECT_EQ(403, args[2].value<int>());
 
     args = response_spy.takeFirst();
     EXPECT_EQ("http://example.com/webdav/", args[0].value<QString>());
     EXPECT_EQ(0, args[1].value<vector<MultiStatusProperty>>().size());
-    EXPECT_EQ("HTTP/1.1 424 Failed Dependency", args[2].value<QString>());
+    EXPECT_EQ(424, args[2].value<int>());
 }
 
 TEST(MultiStatus, response_properties)
@@ -187,7 +187,7 @@ TEST(MultiStatus, response_properties)
     ASSERT_EQ(1, response_spy.count());
     QList<QVariant> args = response_spy.takeFirst();
     EXPECT_EQ("http://www.example.com/file", args[0].value<QString>());
-    EXPECT_EQ("", args[2].value<QString>());
+    EXPECT_EQ(0, args[2].value<int>());
     auto props = args[1].value<vector<MultiStatusProperty>>();
 
     ASSERT_EQ(4, props.size());
@@ -195,23 +195,23 @@ TEST(MultiStatus, response_properties)
     EXPECT_EQ("http://ns.example.com/boxschema/", props[0].ns);
     EXPECT_EQ("bigbox", props[0].name);
     EXPECT_EQ("Box type A", props[0].value);
-    EXPECT_EQ("HTTP/1.1 200 OK", props[0].status);
+    EXPECT_EQ(200, props[0].status);
 
     EXPECT_EQ("http://ns.example.com/boxschema/", props[1].ns);
     EXPECT_EQ("author", props[1].name);
     // TODO: handle structured properties.
     EXPECT_EQ("", props[1].value);
-    EXPECT_EQ("HTTP/1.1 200 OK", props[1].status);
+    EXPECT_EQ(200, props[1].status);
 
     EXPECT_EQ("http://ns.example.com/boxschema/", props[2].ns);
     EXPECT_EQ("DingALing", props[2].name);
     EXPECT_EQ("", props[2].value);
-    EXPECT_EQ("HTTP/1.1 403 Forbidden", props[2].status);
+    EXPECT_EQ(403, props[2].status);
 
     EXPECT_EQ("http://ns.example.com/boxschema/", props[3].ns);
     EXPECT_EQ("Random", props[3].name);
     EXPECT_EQ("", props[3].value);
-    EXPECT_EQ("HTTP/1.1 403 Forbidden", props[3].status);
+    EXPECT_EQ(403, props[3].status);
 }
 
 TEST(MultiStatus, resourcetype_container)
@@ -232,7 +232,7 @@ TEST(MultiStatus, resourcetype_container)
     </D:propstat>
   </D:response>
 </D:multistatus>
-        )");
+)");
     buffer.seek(0);
 
     MultiStatusParser parser(&buffer);
@@ -246,14 +246,14 @@ TEST(MultiStatus, resourcetype_container)
 
     ASSERT_EQ(1, response_spy.count());
     QList<QVariant> args = response_spy.takeFirst();
-    EXPECT_EQ("", args[2].value<QString>());
+    EXPECT_EQ(0, args[2].value<int>());
     auto props = args[1].value<vector<MultiStatusProperty>>();
 
     ASSERT_EQ(1, props.size());
     EXPECT_EQ("DAV:", props[0].ns);
     EXPECT_EQ("resourcetype", props[0].name);
     EXPECT_EQ("DAV:collection", props[0].value);
-    EXPECT_EQ("HTTP/1.1 200 OK", props[0].status);
+    EXPECT_EQ(200, props[0].status);
 }
 
 TEST(MultiStatus, incremental_parse)

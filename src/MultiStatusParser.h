@@ -13,7 +13,7 @@ struct MultiStatusProperty {
     QString ns;
     QString name;
     QString value;
-    QString status;
+    int status;
     QString responsedescription;
 };
 
@@ -28,7 +28,7 @@ public:
     QString const& errorString() const;
 
 Q_SIGNALS:
-    void response(QString const& href, std::vector<MultiStatusProperty> const& properties, QString const& status);
+    void response(QString const& href, std::vector<MultiStatusProperty> const& properties, int status);
     void finished();
 
 private Q_SLOTS:

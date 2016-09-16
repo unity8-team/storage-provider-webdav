@@ -1,6 +1,7 @@
 #include "MultiStatusParser.h"
 
 #include <QDebug>
+#include <QRegularExpression>
 
 #include <cassert>
 
@@ -52,12 +53,12 @@ private:
 
     QString char_data_;
     QString current_href_;
-    QString current_response_status_;
+    int current_response_status_;
     // All properties for the given href
     vector<MultiStatusProperty> current_properties_;
     // Properties within the current <D:propstat>
     vector<MultiStatusProperty> current_propstat_;
-    QString current_propstat_status_;
+    int current_propstat_status_;
     // The property currently being processed
     QString current_prop_namespace_;
     QString current_prop_name_;
@@ -177,7 +178,7 @@ bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
         {
             state_ = ParseState::response;
             current_href_.clear();
-            current_response_status_.clear();
+            current_response_status_ = 0;
             current_properties_.clear();
         }
         else
@@ -197,14 +198,14 @@ bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
             else if (local_name == "status")
             {
                 state_ = ParseState::response_status;
-                current_response_status_.clear();
+                current_response_status_ = 0;
                 char_data_.clear();
             }
             else if (local_name == "propstat")
             {
                 state_ = ParseState::propstat;
                 current_propstat_.clear();
-                current_propstat_status_.clear();
+                current_propstat_status_ = 0;
             }
             else
             {
@@ -229,7 +230,7 @@ bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
             else if (local_name == "status")
             {
                 state_ = ParseState::propstat_status;
-                current_propstat_status_.clear();
+                current_propstat_status_ = 0;
                 char_data_.clear();
             }
             else
@@ -283,6 +284,11 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
         unknown_depth_--;
         return true;
     }
+
+    static QRegularExpression const http_status(
+        R"(^HTTP/\d+\.\d+ (\d\d\d) )");
+    QRegularExpressionMatch match;
+
     switch (state_)
     {
     case ParseState::start:
@@ -318,17 +324,25 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
                 current_prop_namespace_,
                 current_prop_name_,
                 char_data_.trimmed(),
-                QString(),
+                0,
                 QString()
             });
         state_ = ParseState::prop;
         break;
     case ParseState::propstat_status:
-        current_propstat_status_ = char_data_.trimmed();
+        match = http_status.match(char_data_.trimmed());
+        if (match.hasMatch())
+        {
+            current_propstat_status_ = match.captured(1).toInt();
+        }
         state_ = ParseState::propstat;
         break;
     case ParseState::response_status:
-        current_response_status_ = char_data_.trimmed();
+        match = http_status.match(char_data_.trimmed());
+        if (match.hasMatch())
+        {
+            current_response_status_ = match.captured(1).toInt();
+        }
         state_ = ParseState::response;
         break;
     }
