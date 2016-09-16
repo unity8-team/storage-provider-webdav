@@ -30,6 +30,9 @@ class MultiStatusParser::Handler : public QXmlDefaultHandler
 public:
     Handler(MultiStatusParser *parser) : parser_(parser) {}
 
+    bool atEnd() const { return at_end_; }
+
+    bool endDocument() override;
     bool startElement(QString const& namespace_uri, QString const& local_name,
                       QString const& qname, QXmlAttributes const& attrs) override;
     bool endElement(QString const& namespace_uri, QString const& local_name,
@@ -45,6 +48,7 @@ private:
     // Current state
     ParseState state_ = ParseState::start;
     int unknown_depth_ = 0;
+    bool at_end_ = false;
 
     QString char_data_;
     QString current_href_;
@@ -77,7 +81,7 @@ MultiStatusParser::~MultiStatusParser() = default;
 
 void MultiStatusParser::startParsing()
 {
-    if (reader_.parse(&input_, true) || !error_string_.isEmpty()) {
+    if (!reader_.parse(&input_, true) || !error_string_.isEmpty()) {
         finished_ = true;
         Q_EMIT finished();
     }
@@ -89,10 +93,11 @@ QString const& MultiStatusParser::errorString() const {
 
 void MultiStatusParser::onReadyRead()
 {
+    qDebug() << "onReadyRead";
     if (finished_) {
         return;
     }
-    if (reader_.parseContinue() || !error_string_.isEmpty()) {
+    if (!reader_.parseContinue() || !error_string_.isEmpty()) {
         finished_ = true;
         Q_EMIT finished();
     }
@@ -100,15 +105,23 @@ void MultiStatusParser::onReadyRead()
 
 void MultiStatusParser::onReadChannelFinished()
 {
+    qDebug() << "onReadChannelFinished";
     if (finished_) {
         return;
     }
-    if (!reader_.parseContinue()) {
+    if (reader_.parseContinue() && !handler_->atEnd()) {
         error_string_ = "Reached end of input";
     }
     finished_ = true;
     Q_EMIT finished();
 }
+
+bool MultiStatusParser::Handler::endDocument()
+{
+    at_end_ = true;
+    return true;
+}
+
 
 bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
                                               QString const& local_name,

@@ -19,10 +19,8 @@ TEST(MultiStatus, garbage_input)
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
     parser.startParsing();
-    if (finished_spy.count() == 0)
-    {
-        ASSERT_TRUE(finished_spy.wait());
-    }
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
     EXPECT_EQ("error occurred while parsing element", parser.errorString()) << parser.errorString().toStdString();
     EXPECT_EQ(0, response_spy.count());
 }
@@ -45,12 +43,32 @@ TEST(MultiStatus, invalid_xml)
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
     parser.startParsing();
-    if (finished_spy.count() == 0)
-    {
-        ASSERT_TRUE(finished_spy.wait());
-    }
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
     EXPECT_EQ("tag mismatch", parser.errorString()) << parser.errorString().toStdString();
     EXPECT_EQ(0, response_spy.count());
+}
+
+TEST(MultiStatus, incomplete_xml)
+{
+    QBuffer buffer;
+    buffer.open(QIODevice::ReadWrite);
+    buffer.write(R"(
+<D:multistatus xmlns:D='DAV:'>
+  <D:response>
+    <D:href>foo</D:href>
+  </D:response>
+)");
+    buffer.seek(0);
+
+    MultiStatusParser parser(&buffer);
+    QSignalSpy response_spy(&parser, &MultiStatusParser::response);
+    QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
+
+    parser.startParsing();
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
+    EXPECT_EQ("unexpected end of file", parser.errorString()) << parser.errorString().toStdString();
 }
 
 TEST(MultiStatus, non_multistatus_xml)
@@ -65,10 +83,8 @@ TEST(MultiStatus, non_multistatus_xml)
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
     parser.startParsing();
-    if (finished_spy.count() == 0)
-    {
-        ASSERT_TRUE(finished_spy.wait());
-    }
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
     EXPECT_EQ("", parser.errorString()) << parser.errorString().toStdString();
     EXPECT_EQ(0, response_spy.count());
 }
@@ -97,10 +113,8 @@ TEST(MultiStatus, response_status)
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
     parser.startParsing();
-    if (finished_spy.count() == 0)
-    {
-        ASSERT_TRUE(finished_spy.wait());
-    }
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
     EXPECT_EQ("", parser.errorString()) << parser.errorString().toStdString();
 
     ASSERT_EQ(2, response_spy.count());
@@ -153,10 +167,8 @@ TEST(MultiStatus, response_properties)
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
     parser.startParsing();
-    if (finished_spy.count() == 0)
-    {
-        ASSERT_TRUE(finished_spy.wait());
-    }
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
     EXPECT_EQ("", parser.errorString()) << parser.errorString().toStdString();
 
     ASSERT_EQ(1, response_spy.count());
@@ -187,6 +199,84 @@ TEST(MultiStatus, response_properties)
     EXPECT_EQ("Random", props[3].name);
     EXPECT_EQ("", props[3].value);
     EXPECT_EQ("HTTP/1.1 403 Forbidden", props[3].status);
+}
+
+TEST(MultiStatus, streaming_parse)
+{
+    static char const first_chunk[] = R"(
+     <D:multistatus xmlns:D='DAV:'>
+       <D:response>
+         <D:href>/container/</D:href>
+         <D:propstat>
+           <D:prop>
+             <D:creationdate>1997-12-01T17:42:21-08:00</D:creationdate>
+             <D:displayname>Example collection</D:displayname>
+             <D:resourcetype><D:collection/></D:resourcetype>
+           </D:prop>
+           <D:status>HTTP/1.1 200 OK</D:status>
+         </D:propstat>
+       </D:response>
+       <D:response>
+         <D:href>/container/front.html</D:href>
+         <D:propstat>
+)";
+    static char const second_chunk[] = R"(
+           <D:prop>
+             <D:creationdate>1997-12-01T18:27:21-08:00</D:creationdate>
+             <D:displayname>Example HTML resource</D:displayname>
+             <D:getcontentlength>4525</D:getcontentlength>
+             <D:getcontenttype>text/html</D:getcontenttype>
+             <D:getetag>"zzyzx"</D:getetag>
+             <D:getlastmodified
+               >Mon, 12 Jan 1998 09:25:56 GMT</D:getlastmodified>
+             <D:resourcetype/>
+           </D:prop>
+           <D:status>HTTP/1.1 200 OK</D:status>
+         </D:propstat>
+       </D:response>
+     </D:multistatus>
+)";
+    QBuffer buffer;
+    buffer.open(QIODevice::ReadWrite);
+    buffer.write(first_chunk);
+    buffer.seek(0);
+
+    MultiStatusParser parser(&buffer);
+    QSignalSpy response_spy(&parser, &MultiStatusParser::response);
+    QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
+
+    parser.startParsing();
+    ASSERT_EQ(0, finished_spy.count());
+
+    ASSERT_EQ(1, response_spy.count());
+    QList<QVariant> args = response_spy.takeFirst();
+    EXPECT_EQ("/container/", args[0].value<QString>());
+    auto props = args[1].value<vector<MultiStatusProperty>>();
+    ASSERT_EQ(3, props.size());
+    EXPECT_EQ("creationdate", props[0].name);
+    EXPECT_EQ("displayname", props[1].name);
+    EXPECT_EQ("resourcetype", props[2].name);
+
+    auto pos = buffer.pos();
+    buffer.write(second_chunk);
+    buffer.seek(pos);
+    Q_EMIT buffer.readyRead();
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
+    EXPECT_EQ("", parser.errorString()) << parser.errorString().toStdString();
+
+    ASSERT_EQ(1, response_spy.count());
+    args = response_spy.takeFirst();
+    EXPECT_EQ("/container/front.html", args[0].value<QString>());
+    props = args[1].value<vector<MultiStatusProperty>>();
+    ASSERT_EQ(7, props.size());
+    EXPECT_EQ("creationdate", props[0].name);
+    EXPECT_EQ("displayname", props[1].name);
+    EXPECT_EQ("getcontentlength", props[2].name);
+    EXPECT_EQ("getcontenttype", props[3].name);
+    EXPECT_EQ("getetag", props[4].name);
+    EXPECT_EQ("getlastmodified", props[5].name);
+    EXPECT_EQ("resourcetype", props[6].name);
 }
 
 int main(int argc, char**argv)
