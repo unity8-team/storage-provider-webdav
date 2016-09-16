@@ -214,6 +214,48 @@ TEST(MultiStatus, response_properties)
     EXPECT_EQ("HTTP/1.1 403 Forbidden", props[3].status);
 }
 
+TEST(MultiStatus, resourcetype_container)
+{
+    QBuffer buffer;
+    buffer.open(QIODevice::ReadWrite);
+    buffer.write(R"(
+<D:multistatus xmlns:D='DAV:'>
+  <D:response>
+    <D:href>http://www.example.com/file</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype>
+          <D:collection/>
+        </D:resourcetype>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>
+        )");
+    buffer.seek(0);
+
+    MultiStatusParser parser(&buffer);
+    QSignalSpy response_spy(&parser, &MultiStatusParser::response);
+    QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
+
+    parser.startParsing();
+    Q_EMIT buffer.readChannelFinished();
+    ASSERT_EQ(1, finished_spy.count());
+    EXPECT_EQ("", parser.errorString()) << parser.errorString().toStdString();
+
+    ASSERT_EQ(1, response_spy.count());
+    QList<QVariant> args = response_spy.takeFirst();
+    EXPECT_EQ("", args[2].value<QString>());
+    auto props = args[1].value<vector<MultiStatusProperty>>();
+
+    ASSERT_EQ(1, props.size());
+    EXPECT_EQ("DAV:", props[0].ns);
+    EXPECT_EQ("resourcetype", props[0].name);
+    EXPECT_EQ("DAV:collection", props[0].value);
+    EXPECT_EQ("HTTP/1.1 200 OK", props[0].status);
+}
+
 TEST(MultiStatus, incremental_parse)
 {
     static char const first_chunk[] = R"(

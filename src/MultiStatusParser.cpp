@@ -250,7 +250,13 @@ bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
         char_data_.clear();
         break;
     case ParseState::property:
-        // We don't handle extra elements within a property
+        // We don't handle extra elements within a property, but need
+        // to handle DAV:resourcetype, so special case DAV:collection
+        // here.
+        if (namespace_uri == DAV_NS && local_name == "collection")
+        {
+            char_data_ += "DAV:collection";
+        }
         unknown_depth_++;
         break;
     case ParseState::propstat_status:
