@@ -45,3 +45,6 @@ private:
     QString error_string_;
     bool finished_ = false;
 };
+
+Q_DECLARE_METATYPE(MultiStatusProperty)
+Q_DECLARE_METATYPE(std::vector<MultiStatusProperty>)
