@@ -39,8 +39,11 @@ private:
     class Handler;
     friend class Handler;
 
+    // These two represent the same input: we need to keep the
+    // QIODevice around to access bytesAvailable() method.
     QIODevice* const input_;
     QXmlInputSource xmlinput_;
+
     QXmlSimpleReader reader_;
     std::unique_ptr<Handler> handler_;
     QString error_string_;
