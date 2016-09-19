@@ -13,8 +13,22 @@ enable_testing()
 find_package(Boost 1.56 COMPONENTS thread REQUIRED)
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Network REQUIRED)
+find_package(Qt5Test REQUIRED)
+find_package(Qt5Xml REQUIRED)
 pkg_check_modules(SF_PROVIDER REQUIRED storage-framework-provider-1)
 
 add_definitions(-DQT_NO_KEYWORDS)
 
 add_subdirectory(src)
+add_subdirectory(tests)
+
+enable_coverage_report(
+  TARGETS
+    owncloud-provider-lib
+    storage-provider-owncloud
+  FILTER
+    ${CMAKE_SOURCE_DIR}/tests/*
+    ${CMAKE_BINARY_DIR}/*
+  TESTS
+  ${UNIT_TEST_TARGETS}
+)
