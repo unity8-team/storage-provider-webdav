@@ -6,6 +6,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wno-old-style-cast -Wno-missing-fiel
 find_package(GMock)
 set(CMAKE_CXX_FLAGS ${old_cxx_flags})
 
+configure_file(testsetup.h.in testsetup.h @ONLY)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+add_subdirectory(utils)
 
 set(unit_test_dirs
   multistatus

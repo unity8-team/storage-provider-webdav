@@ -12,10 +12,12 @@ enable_testing()
 
 find_package(Boost 1.56 COMPONENTS thread REQUIRED)
 find_package(Qt5Core REQUIRED)
+find_package(Qt5DBus REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Test REQUIRED)
 find_package(Qt5Xml REQUIRED)
 pkg_check_modules(SF_PROVIDER REQUIRED storage-framework-provider-1)
+pkg_check_modules(SF_CLIENT REQUIRED storage-framework-qt-client-1)
 
 add_definitions(-DQT_NO_KEYWORDS)
 
