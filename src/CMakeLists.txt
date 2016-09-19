@@ -3,6 +3,7 @@ add_library(owncloud-provider-lib STATIC
   DavProvider.cpp
   OwncloudProvider.cpp
   MultiStatusParser.cpp
+  item_id.cpp
 )
 target_compile_options(owncloud-provider-lib PUBLIC
   ${SF_PROVIDER_CFLAGS}

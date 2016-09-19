@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS ${old_cxx_flags})
 
 set(unit_test_dirs
   multistatus
+  item_id
 )
 
 set(UNIT_TEST_TARGETS "")
