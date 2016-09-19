@@ -72,3 +72,8 @@ DavEnvironment::~DavEnvironment()
         qCritical() << "Failed to terminate DAV server";
     }
 }
+
+QUrl const& DavEnvironment::base_url() const
+{
+    return base_url_;
+}

@@ -6,6 +6,7 @@
 
 class QNetworkAccessManager;
 class QNetworkRequest;
+class QUrl;
 
 class DavProvider : public unity::storage::provider::ProviderBase
 {
@@ -53,7 +54,7 @@ public:
         unity::storage::provider::Context const& ctx) override;
 
 protected:
-    virtual std::string base_url(
+    virtual QUrl base_url(
         unity::storage::provider::Context const& ctx) const = 0;
     virtual void add_credentials(QNetworkRequest *request,
         unity::storage::provider::Context const& ctx) const = 0;

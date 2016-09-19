@@ -6,8 +6,7 @@ add_library(testutils STATIC
   ProviderEnvironment.cpp
 )
 target_compile_options(testutils
-  PUBLIC ${SF_PROVIDER_CFLAGS} ${SF_CLIENT_CFLAGS}
-  PRIVATE ${TESTUTILS_DEPS_CFLAGS})
+  PUBLIC ${SF_PROVIDER_CFLAGS} ${SF_CLIENT_CFLAGS} ${TESTUTILS_DEPS_CFLAGS})
 target_link_libraries(testutils
   PUBLIC Qt5::DBus Qt5::Core ${SF_PROVIDER_LDFLAGS} ${SF_CLIENT_LDFLAGS}
   PRIVATE ${TESTUTILS_DEPS_LDFLAGS})

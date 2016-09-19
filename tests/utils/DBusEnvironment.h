@@ -37,7 +37,6 @@ public:
     QDBusConnection const& connection() const;
     QString const& busAddress() const;
 
-    void add_demo_provider(char const* service_id);
     void start_services();
 
     QProcess& accounts_service_process();

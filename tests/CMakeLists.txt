@@ -14,6 +14,7 @@ add_subdirectory(utils)
 set(unit_test_dirs
   multistatus
   item_id
+  davprovider
 )
 
 set(UNIT_TEST_TARGETS "")

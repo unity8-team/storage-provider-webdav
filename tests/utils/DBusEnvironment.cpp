@@ -27,8 +27,6 @@ namespace {
 char const ACCOUNTS_BUS_NAME[] = "com.ubuntu.OnlineAccounts.Manager";
 char const FAKE_ACCOUNTS_SERVICE[] = TEST_SRC_DIR "/utils/fake-online-accounts-daemon.py";
 
-char const DEMO_PROVIDER_BUS_NAME[] = "com.canonical.StorageFramework.Provider.ProviderTest";
-char const DEMO_PROVIDER_SERVICE[] = TEST_BIN_DIR "/../demo/provider_test/provider-test";
 }
 
 DBusEnvironment::DBusEnvironment()
@@ -60,15 +58,6 @@ QDBusConnection const& DBusEnvironment::connection() const
 QString const& DBusEnvironment::busAddress() const
 {
     return runner_->sessionBus();
-}
-
-void DBusEnvironment::add_demo_provider(char const* service_id)
-{
-    demo_provider_.reset(
-        new QtDBusTest::QProcessDBusService(
-            DEMO_PROVIDER_BUS_NAME, QDBusConnection::SessionBus,
-            DEMO_PROVIDER_SERVICE, {service_id}));
-    runner_->registerService(demo_provider_);
 }
 
 void DBusEnvironment::start_services()
