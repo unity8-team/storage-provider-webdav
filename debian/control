@@ -6,7 +6,7 @@ Standards-Version: 3.9.6
 Build-Depends: cmake,
                cmake-extras (>= 0.4),
                debhelper (>= 9),
-               googlemock,
+               google-mock,
                libboost-system-dev (>= 1.58) | libboost-system1.58-dev,
                libboost-thread-dev (>= 1.58) | libboost-thread1.58-dev,
                libgtest-dev,
