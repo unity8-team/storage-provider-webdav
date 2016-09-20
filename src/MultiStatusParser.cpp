@@ -52,7 +52,7 @@ private:
     bool at_end_ = false;
 
     QString char_data_;
-    QString current_href_;
+    QUrl current_href_;
     int current_response_status_;
     // All properties for the given href
     vector<MultiStatusProperty> current_properties_;
@@ -65,8 +65,8 @@ private:
 };
 
 
-MultiStatusParser::MultiStatusParser(QIODevice* input)
-    : input_(input), xmlinput_(input),
+MultiStatusParser::MultiStatusParser(QUrl const& base_url, QIODevice* input)
+    : base_url_(base_url), input_(input), xmlinput_(input),
       handler_(new MultiStatusParser::Handler(this))
 {
     assert(input->isReadable());
@@ -304,9 +304,16 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
         state_ = ParseState::multistatus;
         break;
     case ParseState::href:
-        current_href_ = char_data_.trimmed();
+    {
+        QUrl relative(char_data_.trimmed(), QUrl::StrictMode);
+        if (!relative.isValid()) {
+            parser_->error_string_ = QStringLiteral("Invalid URL: ") + char_data_;
+            return false;
+        }
+        current_href_ = parser_->base_url_.resolved(relative);
         state_ = ParseState::response;
         break;
+    }
     case ParseState::propstat:
         for (auto& prop : current_propstat_)
         {

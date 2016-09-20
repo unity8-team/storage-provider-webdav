@@ -14,7 +14,8 @@ TEST(MultiStatus, garbage_input)
     buffer.write("garbage 897123987123987123987132");
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -38,7 +39,8 @@ TEST(MultiStatus, invalid_xml)
 )");
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -61,7 +63,8 @@ TEST(MultiStatus, incomplete_xml)
 )");
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -78,7 +81,8 @@ TEST(MultiStatus, non_multistatus_xml)
     buffer.write("<a><b><c/></b></a>");
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -93,7 +97,8 @@ TEST(MultiStatus, empty)
 {
     QBuffer buffer;
     buffer.open(QIODevice::ReadWrite);
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
     parser.startParsing();
@@ -121,7 +126,8 @@ TEST(MultiStatus, response_status)
 )");
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -132,12 +138,12 @@ TEST(MultiStatus, response_status)
 
     ASSERT_EQ(2, response_spy.count());
     QList<QVariant> args = response_spy.takeFirst();
-    EXPECT_EQ("http://example.com/webdav/secret", args[0].value<QString>());
+    EXPECT_EQ("http://example.com/webdav/secret", args[0].value<QUrl>().toEncoded().toStdString());
     EXPECT_EQ(0, args[1].value<vector<MultiStatusProperty>>().size());
     EXPECT_EQ(403, args[2].value<int>());
 
     args = response_spy.takeFirst();
-    EXPECT_EQ("http://example.com/webdav/", args[0].value<QString>());
+    EXPECT_EQ("http://example.com/webdav/", args[0].value<QUrl>().toEncoded().toStdString());
     EXPECT_EQ(0, args[1].value<vector<MultiStatusProperty>>().size());
     EXPECT_EQ(424, args[2].value<int>());
 }
@@ -175,7 +181,8 @@ TEST(MultiStatus, response_properties)
         )");
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -186,7 +193,7 @@ TEST(MultiStatus, response_properties)
 
     ASSERT_EQ(1, response_spy.count());
     QList<QVariant> args = response_spy.takeFirst();
-    EXPECT_EQ("http://www.example.com/file", args[0].value<QString>());
+    EXPECT_EQ("http://www.example.com/file", args[0].value<QUrl>().toEncoded().toStdString());
     EXPECT_EQ(0, args[2].value<int>());
     auto props = args[1].value<vector<MultiStatusProperty>>();
 
@@ -235,7 +242,8 @@ TEST(MultiStatus, resourcetype_container)
 )");
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -295,7 +303,8 @@ TEST(MultiStatus, incremental_parse)
     buffer.write(first_chunk);
     buffer.seek(0);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -304,7 +313,7 @@ TEST(MultiStatus, incremental_parse)
 
     ASSERT_EQ(1, response_spy.count());
     QList<QVariant> args = response_spy.takeFirst();
-    EXPECT_EQ("/container/", args[0].value<QString>());
+    EXPECT_EQ("http://www.example.com/container/", args[0].value<QUrl>().toEncoded().toStdString());
     auto props = args[1].value<vector<MultiStatusProperty>>();
     ASSERT_EQ(3, props.size());
     EXPECT_EQ("creationdate", props[0].name);
@@ -321,7 +330,7 @@ TEST(MultiStatus, incremental_parse)
 
     ASSERT_EQ(1, response_spy.count());
     args = response_spy.takeFirst();
-    EXPECT_EQ("/container/front.html", args[0].value<QString>());
+    EXPECT_EQ("http://www.example.com/container/front.html", args[0].value<QUrl>().toEncoded().toStdString());
     props = args[1].value<vector<MultiStatusProperty>>();
     ASSERT_EQ(7, props.size());
     EXPECT_EQ("creationdate", props[0].name);
@@ -353,7 +362,8 @@ TEST(MultiStatus, incremental_parse_initially_empty)
     QBuffer buffer;
     buffer.open(QIODevice::ReadWrite);
 
-    MultiStatusParser parser(&buffer);
+    QUrl base_url("http://www.example.com/");
+    MultiStatusParser parser(base_url, &buffer);
     QSignalSpy response_spy(&parser, &MultiStatusParser::response);
     QSignalSpy finished_spy(&parser, &MultiStatusParser::finished);
 
@@ -369,7 +379,7 @@ TEST(MultiStatus, incremental_parse_initially_empty)
 
     ASSERT_EQ(1, response_spy.count());
     QList<QVariant> args = response_spy.takeFirst();
-    EXPECT_EQ("/container/", args[0].value<QString>());
+    EXPECT_EQ("http://www.example.com/container/", args[0].value<QUrl>().toEncoded().toStdString());
 }
 
 int main(int argc, char**argv)
