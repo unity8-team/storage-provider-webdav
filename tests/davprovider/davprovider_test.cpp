@@ -4,6 +4,7 @@
 #include <utils/ProviderEnvironment.h>
 
 #include <QCoreApplication>
+#include <QNetworkAccessManager>
 
 #include <gtest/gtest.h>
 
@@ -25,10 +26,12 @@ protected:
         return base_url_;
     }
 
-    void add_credentials(QNetworkRequest* request, Context const& ctx) const override
+    QNetworkReply *send_request(
+        QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
+        unity::storage::provider::Context const& ctx) const override
     {
-        Q_UNUSED(request);
         Q_UNUSED(ctx);
+        return network_->sendCustomRequest(request, verb, data);
     }
 
 private:

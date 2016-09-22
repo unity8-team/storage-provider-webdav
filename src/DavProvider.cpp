@@ -8,8 +8,8 @@ using namespace std;
 using namespace unity::storage::provider;
 
 DavProvider::DavProvider()
+    : network_(new QNetworkAccessManager)
 {
-    network_.reset(new QNetworkAccessManager);
 }
 
 DavProvider::~DavProvider() = default;

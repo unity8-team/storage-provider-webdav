@@ -16,7 +16,8 @@ QUrl OwncloudProvider::base_url(Context const& ctx) const
     return QUrl("http://whatever.com/");
 }
 
-void OwncloudProvider::add_credentials(QNetworkRequest *request,
-                                       Context const& ctx) const
+QNetworkReply *OwncloudProvider::send_request(
+    QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
+    Context const& ctx) const
 {
 }

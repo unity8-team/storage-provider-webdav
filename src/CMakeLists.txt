@@ -2,6 +2,7 @@
 add_library(owncloud-provider-lib STATIC
   DavProvider.cpp
   OwncloudProvider.cpp
+  RootsHandler.cpp
   MultiStatusParser.cpp
   item_id.cpp
 )
