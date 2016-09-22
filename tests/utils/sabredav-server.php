@@ -17,7 +17,7 @@ lib/Sabre/DAV/FS/File.php
 
 // settings
 date_default_timezone_set('UTC');
-$publicDir = 'public';
+$publicDir = '.';
 
 // Files we need
 require_once 'sabre21/Sabre/autoload.php';

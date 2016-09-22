@@ -2,15 +2,23 @@
 #include <utils/DBusEnvironment.h>
 #include <utils/DavEnvironment.h>
 #include <utils/ProviderEnvironment.h>
+#include <testsetup.h>
 
 #include <QCoreApplication>
+#include <QFutureWatcher>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QSignalSpy>
+#include <QTemporaryDir>
+#include <unity/storage/qt/client/Account.h>
+#include <unity/storage/qt/client/Root.h>
 
 #include <gtest/gtest.h>
 
 using namespace std;
 using namespace unity::storage::provider;
+using namespace unity::storage::qt::client;
+using unity::storage::ItemType;
 
 class TestDavProvider : public DavProvider
 {
@@ -48,7 +56,11 @@ protected:
     {
         dbus_env_.reset(new DBusEnvironment);
         dbus_env_->start_services();
-        dav_env_.reset(new DavEnvironment("/tmp"));
+
+        tmp_dir_.reset(new QTemporaryDir(TEST_BIN_DIR "/dav-test.XXXXXX"));
+        ASSERT_TRUE(tmp_dir_->isValid());
+
+        dav_env_.reset(new DavEnvironment(tmp_dir_->path()));
         provider_env_.reset(new ProviderEnvironment(
                                 unique_ptr<ProviderBase>(new TestDavProvider(dav_env_->base_url())),
                                 3, *dbus_env_));
@@ -58,17 +70,39 @@ protected:
     {
         provider_env_.reset();
         dav_env_.reset();
+        tmp_dir_.reset();
         dbus_env_.reset();
+    }
+
+    shared_ptr<Account> get_client() const
+    {
+        return provider_env_->get_client();
     }
 
 private:
     std::unique_ptr<DBusEnvironment> dbus_env_;
+    std::unique_ptr<QTemporaryDir> tmp_dir_;
     std::unique_ptr<DavEnvironment> dav_env_;
     std::unique_ptr<ProviderEnvironment> provider_env_;
 };
 
 TEST_F(DavProviderTests, roots)
 {
+    auto account = get_client();
+    auto future = account->roots();
+
+    QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+    QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+    watcher.setFuture(account->roots());
+    ASSERT_TRUE(spy.wait());
+
+    auto roots = watcher.result();
+    ASSERT_EQ(1, roots.size());
+    auto item = roots[0];
+    EXPECT_EQ(".", item->native_identity());
+    EXPECT_EQ("Root", item->name());
+    EXPECT_EQ(ItemType::root, item->type());
+    EXPECT_TRUE(item->parent_ids().isEmpty());
 }
 
 int main(int argc, char**argv)
