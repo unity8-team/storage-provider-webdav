@@ -90,10 +90,10 @@ void RootsHandler::onReadyRead()
 
     if (status != 207)
     {
-        sendError(RemoteCommsException("Expected 207 response"));
+        sendError(RemoteCommsException("Expected 207 response, but got " + to_string(status)));
         return;
     }
-    parser_.reset(new MultiStatusParser(base_url_, reply_.get()));
+    parser_.reset(new MultiStatusParser(reply_->request().url(), reply_.get()));
     connect(parser_.get(), &MultiStatusParser::response,
             this, &RootsHandler::onParserResponse);
     connect(parser_.get(), &MultiStatusParser::finished,

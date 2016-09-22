@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QNetworkAccessManager>
+#include <QNetworkRequest>
 
 #include <gtest/gtest.h>
 
@@ -19,7 +20,6 @@ public:
     {
     }
 
-protected:
     QUrl base_url(Context const& ctx) const override
     {
         Q_UNUSED(ctx);
@@ -30,7 +30,10 @@ protected:
         QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
         unity::storage::provider::Context const& ctx) const override
     {
-        Q_UNUSED(ctx);
+        const auto& creds = boost::get<PasswordCredentials>(ctx.credentials);
+        const auto credentials = QByteArray::fromStdString(creds.username + ":" + creds.password);;
+        request.setRawHeader(QByteArrayLiteral("Authorization"),
+                             QByteArrayLiteral("Basic ") + credentials.toBase64());
         return network_->sendCustomRequest(request, verb, data);
     }
 
@@ -48,7 +51,7 @@ protected:
         dav_env_.reset(new DavEnvironment("/tmp"));
         provider_env_.reset(new ProviderEnvironment(
                                 unique_ptr<ProviderBase>(new TestDavProvider(dav_env_->base_url())),
-                                2, *dbus_env_));
+                                3, *dbus_env_));
     }
 
     void TearDown() override

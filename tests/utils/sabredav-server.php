@@ -89,7 +89,7 @@ $rootNode = new \MyCollection($publicDir);
 $authBackend = new \Sabre\DAV\Auth\Backend\BasicCallBack(function($user, $pass) {
     return true;
 });
-$authPlugin = new \Sabre\DAV\Auth\Plugin($authBackend);
+$authPlugin = new \Sabre\DAV\Auth\Plugin($authBackend, "realm");
 
 // The rootNode needs to be passed to the server object.
 $server = new \Sabre\DAV\Server($rootNode);

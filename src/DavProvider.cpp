@@ -1,4 +1,5 @@
 #include "DavProvider.h"
+#include "RootsHandler.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -16,6 +17,8 @@ DavProvider::~DavProvider() = default;
 
 boost::future<ItemList> DavProvider::roots(Context const& ctx)
 {
+    auto handler = new RootsHandler(*this, ctx);
+    return handler->get_future();
 }
 
 boost::future<tuple<ItemList,string>> DavProvider::list(
