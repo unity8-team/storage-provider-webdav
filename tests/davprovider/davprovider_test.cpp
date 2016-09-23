@@ -20,6 +20,8 @@ using namespace unity::storage::provider;
 using namespace unity::storage::qt::client;
 using unity::storage::ItemType;
 
+static constexpr int SIGNAL_WAIT_TIME = 30000;
+
 class TestDavProvider : public DavProvider
 {
 public:
@@ -94,7 +96,10 @@ TEST_F(DavProviderTests, roots)
     QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
     QSignalSpy spy(&watcher, &decltype(watcher)::finished);
     watcher.setFuture(account->roots());
-    ASSERT_TRUE(spy.wait());
+    if (spy.count() == 0)
+    {
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
 
     auto roots = watcher.result();
     ASSERT_EQ(1, roots.size());
