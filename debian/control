@@ -14,12 +14,13 @@ Build-Depends: cmake,
                libqtdbustest1-dev,
                storage-framework-provider-dev,
                storage-framework-client-dev,
-               php-cli <!nocheck>,
-               php-sabre-dav-2.1 <!nocheck>,
-               php-xml <!nocheck>,
+               php-cli | php5-cli <!nocheck>,
+               php-sabre-dav <!nocheck>,
+               pkg-config,
                python3-dbus <!nocheck>,
                python3-gi <!nocheck>,
                qtbase5-dev,
+               qtbase5-dev-tools,
 Homepage: https://launchpad.net/storage-provider-owncloud
 # if you don't have have commit access to this branch but would like to upload
 # directly to Ubuntu, don't worry: your changes will be merged back into the

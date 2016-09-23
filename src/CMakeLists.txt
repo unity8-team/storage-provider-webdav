@@ -13,8 +13,8 @@ target_include_directories(owncloud-provider-lib PUBLIC
   ${Boost_INCLUDE_DIRS}
 )
 target_link_libraries(owncloud-provider-lib
-  ${Boost_LIBRARIES}
   ${SF_PROVIDER_LDFLAGS}
+  ${Boost_LIBRARIES}
   Qt5::Network
   Qt5::Xml
 )
