@@ -10,7 +10,7 @@ include(GNUInstallDirs)
 
 enable_testing()
 
-find_package(Boost 1.56 COMPONENTS thread REQUIRED)
+find_package(Boost 1.56 COMPONENTS thread system REQUIRED)
 find_package(Qt5Core REQUIRED)
 find_package(Qt5DBus REQUIRED)
 find_package(Qt5Network REQUIRED)
