@@ -2,10 +2,16 @@
 
 // settings
 date_default_timezone_set('UTC');
-$publicDir = '.';
+$publicDir = getcwd();
 
-// Files we need
-require_once 'Sabre/autoload.php';
+// The SabreDAV autoloader in Vivid is broken, so add one that just loads
+// arbitrary files from /usr/share/php.
+spl_autoload_register(function($class_name) {
+    $file = "/usr/share/php/" . str_replace("\\", "/", $class_name) . ".php";
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
 
 class DummyAuth extends \Sabre\DAV\Auth\Backend\AbstractBasic {
     protected function validateUserPass($username, $password) {
