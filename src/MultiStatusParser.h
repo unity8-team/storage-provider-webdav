@@ -3,6 +3,7 @@
 #include <QIODevice>
 #include <QObject>
 #include <QString>
+#include <QUrl>
 #include <QXmlInputSource>
 #include <QXmlReader>
 
@@ -21,14 +22,14 @@ class MultiStatusParser : public QObject
 {
     Q_OBJECT
 public:
-    MultiStatusParser(QIODevice* input);
+    MultiStatusParser(QUrl const& base_url, QIODevice* input);
     virtual ~MultiStatusParser();
 
     void startParsing();
     QString const& errorString() const;
 
 Q_SIGNALS:
-    void response(QString const& href, std::vector<MultiStatusProperty> const& properties, int status);
+    void response(QUrl const& href, std::vector<MultiStatusProperty> const& properties, int status);
     void finished();
 
 private Q_SLOTS:
@@ -38,6 +39,8 @@ private Q_SLOTS:
 private:
     class Handler;
     friend class Handler;
+
+    QUrl const base_url_;
 
     // These two represent the same input: we need to keep the
     // QIODevice around to access bytesAvailable() method.
