@@ -6,8 +6,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wno-old-style-cast -Wno-missing-fiel
 find_package(GMock)
 set(CMAKE_CXX_FLAGS ${old_cxx_flags})
 
-find_program(PHP_CLI NAMES php php7.0 php5)
-
 configure_file(testsetup.h.in testsetup.h @ONLY)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
