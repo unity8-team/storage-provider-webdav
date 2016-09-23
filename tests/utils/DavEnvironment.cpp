@@ -85,8 +85,8 @@ DavEnvironment::DavEnvironment(QString const& base_dir)
 
     server_.setProcessChannelMode(QProcess::ForwardedChannels);
     server_.setWorkingDirectory(base_dir);
-    server_.start("php", {"-S", QStringLiteral("127.0.0.1:%1").arg(port),
-                          TEST_SRC_DIR "/utils/sabredav-server.php"});
+    server_.start(PHP_CLI, {"-S", QStringLiteral("127.0.0.1:%1").arg(port),
+                            TEST_SRC_DIR "/utils/sabredav-server.php"});
     if (!server_.waitForStarted())
     {
         throw runtime_error("DavServer::DavServer(): wait for server start failed");
