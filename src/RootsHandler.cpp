@@ -1,15 +1,9 @@
 #include "RootsHandler.h"
-#include "item_id.h"
-
-#include <QDateTime>
-#include <QDebug>
-#include <unity/storage/provider/metadata_keys.h>
 
 #include <cassert>
 
 using namespace std;
 using namespace unity::storage::provider;
-using unity::storage::ItemType;
 
 namespace
 {
@@ -118,49 +112,7 @@ void RootsHandler::onParserResponse(QUrl const& href, std::vector<MultiStatusPro
     }
     try
     {
-        Item item;
-        item.item_id = url_to_id(href, base_url_);
-        item.name = "Root";
-        item.type = ItemType::root;
-
-        for (const auto& prop : properties)
-        {
-            if (prop.status != 200) {
-                // Don't warn about "404 Not Found" properties
-                if (prop.status != 404) {
-                    qWarning() << "Got status" << prop.status << "for property"
-                               << prop.ns << prop.name;
-                }
-                continue;
-            }
-            if (prop.ns == "DAV:")
-            {
-                if (prop.name == "getetag")
-                {
-                    item.etag = prop.value.toStdString();
-                }
-                else if (prop.name == "getcontentlength")
-                {
-                    item.metadata[SIZE_IN_BYTES] = static_cast<int64_t>(prop.value.toLongLong());
-                }
-                else if (prop.name == "creationdate")
-                {
-                    auto date = QDateTime::fromString(prop.value, Qt::RFC2822Date);
-                    if (date.isValid())
-                    {
-                        item.metadata[CREATION_TIME] = date.toString(Qt::ISODate).toStdString();
-                    }
-                }
-                else if (prop.name == "getlastmodified")
-                {
-                    auto date = QDateTime::fromString(prop.value, Qt::RFC2822Date);
-                    if (date.isValid())
-                    {
-                        item.metadata[LAST_MODIFIED_TIME] = date.toString(Qt::ISODate).toStdString();
-                    }
-                }
-            }
-        }
+        Item item = provider_.make_item(href, base_url_, properties);
         roots_.emplace_back(std::move(item));
     }
     catch (StorageException const& error)
