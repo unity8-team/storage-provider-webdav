@@ -108,9 +108,11 @@ Item DavProvider::make_item(QUrl const& href, QUrl const& base_url,
 
     for (const auto& prop : properties)
     {
-        if (prop.status != 200) {
+        if (prop.status != 200)
+        {
             // Don't warn about "404 Not Found" properties
-            if (prop.status != 404) {
+            if (prop.status != 404)
+            {
                 qWarning() << "Got status" << prop.status << "for property"
                            << prop.ns << prop.name;
             }

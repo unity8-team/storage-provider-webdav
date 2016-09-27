@@ -1,6 +1,7 @@
 
 add_library(dav-provider-lib STATIC
   DavProvider.cpp
+  PropFindHandler.cpp
   RootsHandler.cpp
   MultiStatusParser.cpp
   item_id.cpp
