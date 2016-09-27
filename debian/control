@@ -1,4 +1,4 @@
-Source: storage-provider-owncloud
+Source: storage-provider-webdav
 Section: ???
 Priority: optional
 Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
@@ -21,11 +21,11 @@ Build-Depends: cmake,
                python3-gi <!nocheck>,
                qtbase5-dev,
                qtbase5-dev-tools,
-Homepage: https://launchpad.net/storage-provider-owncloud
+Homepage: https://launchpad.net/storage-provider-webdav
 # if you don't have have commit access to this branch but would like to upload
 # directly to Ubuntu, don't worry: your changes will be merged back into the
 # upstream branch
-Vcs-Bzr: lp:storage-provider-owncloud
+Vcs-Bzr: lp:storage-provider-webdav
 
 Package: storage-provider-owncloud
 Architecture: any

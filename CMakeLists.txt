@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(storage-provider-owncloud VERSION "0.1")
+project(storage-provider-webdav VERSION "0.1")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pedantic -Wextra -fvisibility=hidden")
 
@@ -26,7 +26,7 @@ add_subdirectory(tests)
 
 enable_coverage_report(
   TARGETS
-    owncloud-provider-lib
+    dav-provider-lib
     storage-provider-owncloud
   FILTER
     ${CMAKE_SOURCE_DIR}/tests/*

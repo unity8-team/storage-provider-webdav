@@ -1,4 +1,4 @@
-storage-provider-owncloud (0.1-0ubuntu1) UNRELEASED; urgency=medium
+storage-provider-webdav (0.1-0ubuntu1) UNRELEASED; urgency=medium
 
   * Initial release.
 

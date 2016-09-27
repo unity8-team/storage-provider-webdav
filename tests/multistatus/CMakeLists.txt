@@ -1,6 +1,6 @@
 add_executable(multistatus_test multistatus_test.cpp)
 target_link_libraries(multistatus_test
-  owncloud-provider-lib
+  dav-provider-lib
   Qt5::Test
   gtest
 )
