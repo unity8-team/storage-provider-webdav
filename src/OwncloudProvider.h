@@ -8,10 +8,9 @@ public:
     OwncloudProvider();
     virtual ~OwncloudProvider();
 
-protected:
     QUrl base_url(
         unity::storage::provider::Context const& ctx) const override;
-    void add_credentials(
-        QNetworkRequest *request,
+    QNetworkReply *send_request(
+        QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
         unity::storage::provider::Context const& ctx) const override;
 };

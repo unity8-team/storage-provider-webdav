@@ -4,7 +4,10 @@
 
 #include <memory>
 
+class QByteArray;
+class QIODevice;
 class QNetworkAccessManager;
+class QNetworkReply;
 class QNetworkRequest;
 class QUrl;
 
@@ -53,12 +56,12 @@ public:
         std::string const& new_name,
         unity::storage::provider::Context const& ctx) override;
 
-protected:
     virtual QUrl base_url(
         unity::storage::provider::Context const& ctx) const = 0;
-    virtual void add_credentials(QNetworkRequest *request,
+    virtual QNetworkReply *send_request(
+        QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
         unity::storage::provider::Context const& ctx) const = 0;
 
-private:
-    std::unique_ptr<QNetworkAccessManager> network_;
+protected:
+    std::unique_ptr<QNetworkAccessManager> const network_;
 };

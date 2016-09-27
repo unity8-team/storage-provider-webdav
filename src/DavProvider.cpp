@@ -1,4 +1,5 @@
 #include "DavProvider.h"
+#include "RootsHandler.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -8,14 +9,16 @@ using namespace std;
 using namespace unity::storage::provider;
 
 DavProvider::DavProvider()
+    : network_(new QNetworkAccessManager)
 {
-    network_.reset(new QNetworkAccessManager);
 }
 
 DavProvider::~DavProvider() = default;
 
 boost::future<ItemList> DavProvider::roots(Context const& ctx)
 {
+    auto handler = new RootsHandler(*this, ctx);
+    return handler->get_future();
 }
 
 boost::future<tuple<ItemList,string>> DavProvider::list(
