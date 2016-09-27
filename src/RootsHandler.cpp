@@ -126,8 +126,11 @@ void RootsHandler::onParserResponse(QUrl const& href, std::vector<MultiStatusPro
         for (const auto& prop : properties)
         {
             if (prop.status != 200) {
-                qWarning() << "Got status" << prop.status << "for property"
-                           << prop.ns << prop.name;
+                // Don't warn about "404 Not Found" properties
+                if (prop.status != 404) {
+                    qWarning() << "Got status" << prop.status << "for property"
+                               << prop.ns << prop.name;
+                }
                 continue;
             }
             if (prop.ns == "DAV:")

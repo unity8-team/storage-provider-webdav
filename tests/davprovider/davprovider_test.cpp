@@ -108,6 +108,7 @@ TEST_F(DavProviderTests, roots)
     EXPECT_EQ("Root", item->name());
     EXPECT_EQ(ItemType::root, item->type());
     EXPECT_TRUE(item->parent_ids().isEmpty());
+    EXPECT_TRUE(item->last_modified_time().isValid());
 }
 
 int main(int argc, char**argv)
