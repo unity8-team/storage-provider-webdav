@@ -2,7 +2,10 @@
 #include "item_id.h"
 
 #include <QDateTime>
+#include <QDebug>
 #include <unity/storage/provider/metadata_keys.h>
+
+#include <cassert>
 
 using namespace std;
 using namespace unity::storage::provider;
@@ -36,11 +39,8 @@ RootsHandler::RootsHandler(DavProvider const& provider, Context const& ctx)
 
     reply_.reset(provider.send_request(request, QByteArrayLiteral("PROPFIND"),
                                        &request_body_, ctx));
-    if (!reply_)
-    {
-        sendError(RemoteCommsException("Could not make network request"));
-        return;
-    }
+    assert(reply_.get() != nullptr);
+
     connect(reply_.get(), static_cast<void(QNetworkReply::*)(QNetworkReply::NetworkError)>(&QNetworkReply::error),
             this, &RootsHandler::onError);
     connect(reply_.get(), &QIODevice::readyRead,
@@ -58,7 +58,9 @@ boost::future<unity::storage::provider::ItemList> RootsHandler::get_future()
 
 void RootsHandler::sendError(StorageException const& error)
 {
-    if (promise_set_) return;
+    if (promise_set_) {
+        return;
+    }
 
     promise_.set_exception(error);
     promise_set_ = true;
@@ -68,7 +70,9 @@ void RootsHandler::sendError(StorageException const& error)
 
 void RootsHandler::sendResponse()
 {
-    if (promise_set_) return;
+    if (promise_set_) {
+        return;
+    }
 
     promise_.set_value(roots_);
     promise_set_ = true;
@@ -78,8 +82,8 @@ void RootsHandler::sendResponse()
 
 void RootsHandler::onError(QNetworkReply::NetworkError code)
 {
-    // FIXME: include error info from code
-    sendError(RemoteCommsException("Error from QNetworkReply"));
+    sendError(RemoteCommsException("Error from QNetworkReply: " +
+                                   to_string(code)));
 }
 
 void RootsHandler::onReadyRead()
@@ -121,7 +125,11 @@ void RootsHandler::onParserResponse(QUrl const& href, std::vector<MultiStatusPro
 
         for (const auto& prop : properties)
         {
-            if (prop.status != 200) continue;
+            if (prop.status != 200) {
+                qWarning() << "Got status" << prop.status << "for property"
+                           << prop.ns << prop.name;
+                continue;
+            }
             if (prop.ns == "DAV:")
             {
                 if (prop.name == "getetag")
