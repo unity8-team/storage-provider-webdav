@@ -89,7 +89,7 @@ TEST(MultiStatus, non_multistatus_xml)
     parser.startParsing();
     Q_EMIT buffer.readChannelFinished();
     ASSERT_EQ(1, finished_spy.count());
-    EXPECT_EQ("", parser.errorString()) << parser.errorString().toStdString();
+    EXPECT_EQ("Unexpectedly reached end of input", parser.errorString()) << parser.errorString().toStdString();
     EXPECT_EQ(0, response_spy.count());
 }
 
