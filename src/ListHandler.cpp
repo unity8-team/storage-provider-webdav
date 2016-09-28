@@ -35,5 +35,5 @@ void ListHandler::finish()
                                return item.item_id == parent_id_;
                            }), items_.end());
 
-    promise_.set_value(make_tuple(std::move(items_), string()));
+    promise_.set_value(make_tuple(move(items_), string()));
 }

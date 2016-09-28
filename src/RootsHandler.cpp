@@ -36,5 +36,5 @@ void RootsHandler::finish()
         return;
     }
 
-    promise_.set_value(items_);
+    promise_.set_value(move(items_));
 }

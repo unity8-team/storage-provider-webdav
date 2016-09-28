@@ -37,5 +37,5 @@ void MetadataHandler::finish()
         return;
     }
 
-    promise_.set_value(items_[0]);
+    promise_.set_value(move(items_[0]));
 }
