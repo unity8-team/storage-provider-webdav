@@ -33,7 +33,6 @@ public:
 
     bool atEnd() const { return at_end_; }
 
-    bool endDocument() override;
     bool startElement(QString const& namespace_uri, QString const& local_name,
                       QString const& qname, QXmlAttributes const& attrs) override;
     bool endElement(QString const& namespace_uri, QString const& local_name,
@@ -139,13 +138,6 @@ void MultiStatusParser::onReadChannelFinished()
     finished_ = true;
     Q_EMIT finished();
 }
-
-bool MultiStatusParser::Handler::endDocument()
-{
-    at_end_ = true;
-    return true;
-}
-
 
 bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
                                               QString const& local_name,
@@ -297,6 +289,7 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
         break;
     case ParseState::multistatus:
         state_ = ParseState::start;
+        at_end_ = true;
         break;
     case ParseState::response:
         Q_EMIT parser_->response(current_href_, current_properties_,

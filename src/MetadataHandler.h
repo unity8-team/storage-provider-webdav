@@ -19,7 +19,7 @@ public:
     boost::future<unity::storage::provider::Item> get_future();
 
 private:
-    std::string const& item_id_;
+    std::string const item_id_;
     boost::promise<unity::storage::provider::Item> promise_;
 
 protected:

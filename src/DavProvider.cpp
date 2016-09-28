@@ -1,6 +1,7 @@
 #include "DavProvider.h"
 #include "MultiStatusParser.h"
 #include "RootsHandler.h"
+#include "ListHandler.h"
 #include "LookupHandler.h"
 #include "MetadataHandler.h"
 #include "item_id.h"
@@ -33,6 +34,12 @@ boost::future<ItemList> DavProvider::roots(Context const& ctx)
 boost::future<tuple<ItemList,string>> DavProvider::list(
     string const& item_id, string const& page_token, Context const& ctx)
 {
+    if (!page_token.empty())
+    {
+        throw InvalidArgumentException("Invalid paging token: " + page_token);
+    }
+    auto handler = new ListHandler(*this, item_id, ctx);
+    return handler->get_future();
 }
 
 boost::future<ItemList> DavProvider::lookup(
