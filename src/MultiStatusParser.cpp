@@ -318,7 +318,7 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
         for (auto& prop : current_propstat_)
         {
             prop.status = current_propstat_status_;
-            current_properties_.emplace_back(std::move(prop));
+            current_properties_.emplace_back(move(prop));
         }
         current_propstat_.clear();
         state_ = ParseState::response;

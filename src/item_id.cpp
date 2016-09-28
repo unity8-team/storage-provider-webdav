@@ -48,12 +48,17 @@ string url_to_id(QUrl const& item_url, QUrl const& base_url)
 // Construct a possible ID for a named child of a parent ID
 string make_child_id(string const& parent_id, string const& name)
 {
+    if (name == "." || name == "..")
+    {
+        throw InvalidArgumentException("Invalid name: " + name);
+    }
+
     string item_id = parent_id;
     if (item_id == ".")
     {
         item_id.clear();
     }
-    if (item_id.size() == 0 || item_id[item_id.size()-1] != '/')
+    else if (item_id.size() == 0 || item_id[item_id.size()-1] != '/')
     {
         item_id += '/';
     }

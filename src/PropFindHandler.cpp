@@ -97,7 +97,7 @@ void PropFindHandler::onReadyRead()
             this, &PropFindHandler::onParserFinished);
 }
 
-void PropFindHandler::onParserResponse(QUrl const& href, std::vector<MultiStatusProperty> const& properties, int status)
+void PropFindHandler::onParserResponse(QUrl const& href, vector<MultiStatusProperty> const& properties, int status)
 {
     if (status != 0 && status != 200)
     {
@@ -107,7 +107,7 @@ void PropFindHandler::onParserResponse(QUrl const& href, std::vector<MultiStatus
     try
     {
         Item item = provider_.make_item(href, base_url_, properties);
-        items_.emplace_back(std::move(item));
+        items_.emplace_back(move(item));
     }
     catch (StorageException const& error)
     {
