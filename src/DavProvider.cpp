@@ -1,6 +1,8 @@
 #include "DavProvider.h"
 #include "MultiStatusParser.h"
 #include "RootsHandler.h"
+#include "LookupHandler.h"
+#include "MetadataHandler.h"
 #include "item_id.h"
 
 #include <QDateTime>
@@ -36,11 +38,16 @@ boost::future<tuple<ItemList,string>> DavProvider::list(
 boost::future<ItemList> DavProvider::lookup(
     string const& parent_id, string const& name, Context const& ctx)
 {
+    string item_id = make_child_id(parent_id, name);
+    auto handler = new LookupHandler(*this, item_id, ctx);
+    return handler->get_future();
 }
 
 boost::future<Item> DavProvider::metadata(
     string const& item_id, Context const& ctx)
 {
+    auto handler = new MetadataHandler(*this, item_id, ctx);
+    return handler->get_future();
 }
 
 boost::future<Item> DavProvider::create_folder(
