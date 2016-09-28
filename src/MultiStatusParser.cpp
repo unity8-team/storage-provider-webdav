@@ -33,6 +33,7 @@ public:
 
     bool atEnd() const { return at_end_; }
 
+    bool endDocument() override;
     bool startElement(QString const& namespace_uri, QString const& local_name,
                       QString const& qname, QXmlAttributes const& attrs) override;
     bool endElement(QString const& namespace_uri, QString const& local_name,
@@ -126,10 +127,16 @@ void MultiStatusParser::onReadChannelFinished()
     {
         return;
     }
-    // Perform one final call to parseContinue() to signal end of file
     if (started_)
     {
-        reader_.parseContinue();
+        // Drain the remaining data from the input channel
+        while (reader_.parseContinue())
+        {
+            if (handler_->atEnd())
+            {
+                break;
+            }
+        }
     }
     if (error_string_.isEmpty() && !handler_->atEnd())
     {
@@ -137,6 +144,12 @@ void MultiStatusParser::onReadChannelFinished()
     }
     finished_ = true;
     Q_EMIT finished();
+}
+
+bool MultiStatusParser::Handler::endDocument()
+{
+    at_end_ = true;
+    return true;
 }
 
 bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,

@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <algorithm>
 
 using namespace std;
 using namespace unity::storage::qt::client;
@@ -134,7 +135,9 @@ TEST_F(DavProviderTests, list)
     auto account = get_client();
     make_file("foo.txt");
     make_file("bar.txt");
+    //make_dir("folder");
     make_file("folder");
+    make_file("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n");
 
     shared_ptr<Root> root;
     {
@@ -162,7 +165,33 @@ TEST_F(DavProviderTests, list)
         auto res = watcher.result();
         items.assign(res.begin(), res.end());
     }
-    EXPECT_EQ(3, items.size());
+    ASSERT_EQ(4, items.size());
+    sort(items.begin(), items.end(),
+         [](shared_ptr<Item> const& a, shared_ptr<Item> const& b) -> bool {
+             return a->native_identity() < b->native_identity();
+         });
+
+    EXPECT_EQ("I%C3%B1t%C3%ABrn%C3%A2ti%C3%B4n%C3%A0liz%C3%A6ti%C3%B8n", items[0]->native_identity());
+    EXPECT_EQ(".", items[0]->parent_ids().at(0));
+    EXPECT_EQ("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n", items[0]->name());
+    EXPECT_EQ(ItemType::file, items[0]->type());
+
+    EXPECT_EQ("bar.txt", items[1]->native_identity());
+    EXPECT_EQ(".", items[1]->parent_ids().at(0));
+    EXPECT_EQ("bar.txt", items[1]->name());
+    EXPECT_EQ(ItemType::file, items[1]->type());
+
+    //EXPECT_EQ("folder/", items[2]->native_identity());
+    EXPECT_EQ("folder", items[2]->native_identity());
+    EXPECT_EQ(".", items[2]->parent_ids().at(0));
+    EXPECT_EQ("folder", items[2]->name());
+    //EXPECT_EQ(ItemType::folder, items[2]->type());
+    EXPECT_EQ(ItemType::file, items[2]->type());
+
+    EXPECT_EQ("foo.txt", items[3]->native_identity());
+    EXPECT_EQ(".", items[3]->parent_ids().at(0));
+    EXPECT_EQ("foo.txt", items[3]->name());
+    EXPECT_EQ(ItemType::file, items[3]->type());
 }
 
 TEST_F(DavProviderTests, lookup)
@@ -198,8 +227,7 @@ TEST_F(DavProviderTests, lookup)
     }
     ASSERT_EQ(1, items.size());
     EXPECT_EQ("foo.txt", items[0]->native_identity());
-    ASSERT_EQ(1, items[0]->parent_ids().size());
-    EXPECT_EQ(".", items[0]->parent_ids()[0]);
+    EXPECT_EQ(".", items[0]->parent_ids().at(0));
     EXPECT_EQ("foo.txt", items[0]->name());
     EXPECT_EQ(ItemType::file, items[0]->type());
 }
@@ -236,8 +264,7 @@ TEST_F(DavProviderTests, metadata)
     }
 
     EXPECT_EQ("foo.txt", item->native_identity());
-    ASSERT_EQ(1, item->parent_ids().size());
-    EXPECT_EQ(".", item->parent_ids()[0]);
+    EXPECT_EQ(".", item->parent_ids().at(0));
     EXPECT_EQ("foo.txt", item->name());
     EXPECT_EQ(ItemType::file, item->type());
 }
