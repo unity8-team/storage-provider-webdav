@@ -181,6 +181,10 @@ TEST_F(DavProviderTests, list)
     EXPECT_EQ("bar.txt", items[1]->name());
     EXPECT_EQ(ItemType::file, items[1]->type());
 
+    // FIXME: SabreDAV doesn't provide an ETag for folders, which
+    // currently trips up storage-framework's client side metadata
+    // validation.
+
     //EXPECT_EQ("folder/", items[2]->native_identity());
     EXPECT_EQ("folder", items[2]->native_identity());
     EXPECT_EQ(".", items[2]->parent_ids().at(0));
