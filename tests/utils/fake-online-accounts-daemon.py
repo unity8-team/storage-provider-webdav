@@ -81,18 +81,23 @@ class Password:
         }, signature="sv")
 
 class Account:
-    def __init__(self, account_id, display_name, service_id, credentials):
+    def __init__(self, account_id, display_name, service_id, credentials, settings=None):
         self.account_id = account_id
         self.display_name = display_name
         self.service_id = service_id
         self.credentials = credentials
+        self.settings = settings
 
     def serialise(self):
-        return (dbus.UInt32(self.account_id), dbus.Dictionary({
+        account_info = dbus.Dictionary({
             "displayName": dbus.String(self.display_name),
             "serviceId": dbus.String(self.service_id),
             "authMethod": dbus.Int32(self.credentials.method),
-            }, signature="sv"))
+        }, signature="sv")
+        if self.settings is not None:
+            for key, value in self.settings.items():
+                account_info['settings/' + key] = value
+        return (dbus.UInt32(self.account_id), account_info)
 
 class Manager(dbus.service.Object):
     def __init__(self, connection, object_path, accounts):
@@ -155,16 +160,9 @@ class Server:
 
 if __name__ == "__main__":
     accounts = [
-        Account(1, "OAuth1 account", "oauth1-service",
-                OAuth1("consumer_key", "consumer_secret", "token", "token_secret")),
-        Account(2, "OAuth2 account", "oauth2-service",
-                OAuth2("access_token", 0, ["scope1", "scope2"])),
-        Account(3, "Password account", "password-service",
-                Password("user", "pass")),
-        Account(42, "Fake google account", "google-drive-scope",
-                OAuth2("fake-google-access-token", 0, [])),
-        Account(99, "Fake mcloud account", "com.canonical.scopes.mcloud_mcloud_mcloud",
-                OAuth2("fake-mcloud-access-token", 0, [])),
+        Account(1, "Owncloud", "storage-provider-owncloud",
+                Password("user", "pass"),
+                {"host": "http://localhost:8888/owncloud/"}),
     ]
     server = Server(accounts)
     server.run()

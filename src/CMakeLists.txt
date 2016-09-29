@@ -28,3 +28,8 @@ add_executable(storage-provider-owncloud
 target_link_libraries(storage-provider-owncloud
   dav-provider-lib
 )
+
+install(
+  TARGETS storage-provider-owncloud
+  RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}"
+)
