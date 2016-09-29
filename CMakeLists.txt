@@ -22,6 +22,7 @@ pkg_check_modules(SF_CLIENT REQUIRED storage-framework-qt-client-1)
 add_definitions(-DQT_NO_KEYWORDS)
 
 add_subdirectory(src)
+add_subdirectory(data)
 add_subdirectory(tests)
 
 enable_coverage_report(

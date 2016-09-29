@@ -47,7 +47,8 @@ public:
         provider::Context const& ctx) const override
     {
         const auto& creds = boost::get<provider::PasswordCredentials>(ctx.credentials);
-        const auto credentials = QByteArray::fromStdString(creds.username + ":" + creds.password);;
+        const auto credentials = QByteArray::fromStdString(creds.username + ":" +
+                                                           creds.password);
         request.setRawHeader(QByteArrayLiteral("Authorization"),
                              QByteArrayLiteral("Basic ") + credentials.toBase64());
         return network_->sendCustomRequest(request, verb, data);
@@ -71,7 +72,7 @@ protected:
         dav_env_.reset(new DavEnvironment(tmp_dir_->path()));
         provider_env_.reset(new ProviderEnvironment(
                                 unique_ptr<provider::ProviderBase>(new TestDavProvider(dav_env_->base_url())),
-                                3, *dbus_env_));
+                                1, *dbus_env_));
     }
 
     void TearDown() override

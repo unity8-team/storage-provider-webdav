@@ -1,5 +1,5 @@
 Source: storage-provider-webdav
-Section: ???
+Section: net
 Priority: optional
 Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Standards-Version: 3.9.6
@@ -31,8 +31,8 @@ Package: storage-provider-owncloud
 Architecture: any
 Multi-Arch: foreign
 Pre-Depends: ${misc:Pre-Depends},
-Depends: ${misc:Depends},
+Depends: account-plugin-owncloud,
+         ${misc:Depends},
          ${shlibs:Depends},
-         account-plugin-owncloud
 Description: Owncloud plugin for Storage Framework
  A Storage Framework plugin providing access to Owncloud servers.

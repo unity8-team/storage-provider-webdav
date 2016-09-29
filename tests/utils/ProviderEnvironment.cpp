@@ -1,5 +1,7 @@
 #include "ProviderEnvironment.h"
 
+#include <unity/storage/provider/ProviderBase.h>
+
 #include <cassert>
 
 using namespace std;
