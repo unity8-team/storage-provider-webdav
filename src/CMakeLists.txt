@@ -1,9 +1,13 @@
 
 add_library(dav-provider-lib STATIC
   DavProvider.cpp
-  RootsHandler.cpp
   MultiStatusParser.cpp
   item_id.cpp
+  PropFindHandler.cpp
+  ListHandler.cpp
+  LookupHandler.cpp
+  MetadataHandler.cpp
+  RootsHandler.cpp
 )
 target_compile_options(dav-provider-lib PUBLIC
   ${SF_PROVIDER_CFLAGS}

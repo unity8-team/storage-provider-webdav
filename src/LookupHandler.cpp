@@ -1,23 +1,24 @@
-#include "RootsHandler.h"
+#include "LookupHandler.h"
 
 #include <cassert>
 
 using namespace std;
 using namespace unity::storage::provider;
 
-RootsHandler::RootsHandler(DavProvider const& provider, Context const& ctx)
-    : PropFindHandler(provider, ".", 0, ctx)
+LookupHandler::LookupHandler(DavProvider const& provider,
+                             string const& item_id, Context const& ctx)
+    : PropFindHandler(provider, item_id, 0, ctx)
 {
 }
 
-RootsHandler::~RootsHandler() = default;
+LookupHandler::~LookupHandler() = default;
 
-boost::future<ItemList> RootsHandler::get_future()
+boost::future<ItemList> LookupHandler::get_future()
 {
     return promise_.get_future();
 }
 
-void RootsHandler::finish()
+void LookupHandler::finish()
 {
     if (error_)
     {
@@ -28,11 +29,6 @@ void RootsHandler::finish()
     if (items_.size() != 1)
     {
         promise_.set_exception(RemoteCommsException("Unexpectedly received " + to_string(items_.size()) + " items from PROPFIND request"));
-        return;
-    }
-    if (items_[0].item_id != ".")
-    {
-        promise_.set_exception(RemoteCommsException("PROPFIND request returned data about the wrong item"));
         return;
     }
 

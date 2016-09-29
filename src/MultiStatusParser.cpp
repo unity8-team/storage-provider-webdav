@@ -127,10 +127,16 @@ void MultiStatusParser::onReadChannelFinished()
     {
         return;
     }
-    // Perform one final call to parseContinue() to signal end of file
     if (started_)
     {
-        reader_.parseContinue();
+        // Drain the remaining data from the input channel
+        while (reader_.parseContinue())
+        {
+            if (handler_->atEnd())
+            {
+                break;
+            }
+        }
     }
     if (error_string_.isEmpty() && !handler_->atEnd())
     {
@@ -145,7 +151,6 @@ bool MultiStatusParser::Handler::endDocument()
     at_end_ = true;
     return true;
 }
-
 
 bool MultiStatusParser::Handler::startElement(QString const& namespace_uri,
                                               QString const& local_name,
@@ -297,6 +302,7 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
         break;
     case ParseState::multistatus:
         state_ = ParseState::start;
+        at_end_ = true;
         break;
     case ParseState::response:
         Q_EMIT parser_->response(current_href_, current_properties_,
@@ -318,7 +324,7 @@ bool MultiStatusParser::Handler::endElement(QString const& namespace_uri,
         for (auto& prop : current_propstat_)
         {
             prop.status = current_propstat_status_;
-            current_properties_.emplace_back(std::move(prop));
+            current_properties_.emplace_back(move(prop));
         }
         current_propstat_.clear();
         state_ = ParseState::response;

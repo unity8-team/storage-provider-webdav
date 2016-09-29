@@ -1,23 +1,24 @@
-#include "RootsHandler.h"
+#include "MetadataHandler.h"
 
 #include <cassert>
 
 using namespace std;
 using namespace unity::storage::provider;
 
-RootsHandler::RootsHandler(DavProvider const& provider, Context const& ctx)
-    : PropFindHandler(provider, ".", 0, ctx)
+MetadataHandler::MetadataHandler(DavProvider const& provider,
+                                 string const& item_id, Context const& ctx)
+    : PropFindHandler(provider, item_id, 0, ctx), item_id_(item_id)
 {
 }
 
-RootsHandler::~RootsHandler() = default;
+MetadataHandler::~MetadataHandler() = default;
 
-boost::future<ItemList> RootsHandler::get_future()
+boost::future<Item> MetadataHandler::get_future()
 {
     return promise_.get_future();
 }
 
-void RootsHandler::finish()
+void MetadataHandler::finish()
 {
     if (error_)
     {
@@ -30,11 +31,11 @@ void RootsHandler::finish()
         promise_.set_exception(RemoteCommsException("Unexpectedly received " + to_string(items_.size()) + " items from PROPFIND request"));
         return;
     }
-    if (items_[0].item_id != ".")
+    if (items_[0].item_id != item_id_)
     {
         promise_.set_exception(RemoteCommsException("PROPFIND request returned data about the wrong item"));
         return;
     }
 
-    promise_.set_value(move(items_));
+    promise_.set_value(move(items_[0]));
 }

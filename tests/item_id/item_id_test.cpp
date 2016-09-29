@@ -53,6 +53,19 @@ TEST(ItemId, url_to_id)
     EXPECT_THROW(to_id("http://www.example.com/base/dir/"), RemoteCommsException);
 }
 
+TEST(ItemId, make_child_id)
+{
+    EXPECT_EQ("foo", make_child_id(".", "foo"));
+    EXPECT_EQ("foo/bar", make_child_id("foo", "bar"));
+    EXPECT_EQ("foo/bar", make_child_id("foo/", "bar"));
+
+    EXPECT_EQ("foo/hello%20world%3F", make_child_id("foo/", "hello world?"));
+    EXPECT_EQ("foo/na%C3%AFve", make_child_id("foo/", "na\u00EFve"));
+
+    EXPECT_THROW(make_child_id("foo/", "."), InvalidArgumentException);
+    EXPECT_THROW(make_child_id("foo/", ".."), InvalidArgumentException);
+}
+
 
 int main(int argc, char**argv)
 {

@@ -10,6 +10,7 @@ class QNetworkAccessManager;
 class QNetworkReply;
 class QNetworkRequest;
 class QUrl;
+struct MultiStatusProperty;
 
 class DavProvider : public unity::storage::provider::ProviderBase
 {
@@ -61,6 +62,9 @@ public:
     virtual QNetworkReply *send_request(
         QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
         unity::storage::provider::Context const& ctx) const = 0;
+    virtual unity::storage::provider::Item make_item(
+        QUrl const& href, QUrl const& base_url,
+        std::vector<MultiStatusProperty> const& properties) const;
 
 protected:
     std::unique_ptr<QNetworkAccessManager> const network_;

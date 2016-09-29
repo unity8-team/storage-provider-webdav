@@ -15,10 +15,16 @@
 
 #include <gtest/gtest.h>
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <algorithm>
+
 using namespace std;
-using namespace unity::storage::provider;
 using namespace unity::storage::qt::client;
 using unity::storage::ItemType;
+namespace provider = unity::storage::provider;
 
 static constexpr int SIGNAL_WAIT_TIME = 30000;
 
@@ -30,7 +36,7 @@ public:
     {
     }
 
-    QUrl base_url(Context const& ctx) const override
+    QUrl base_url(provider::Context const& ctx) const override
     {
         Q_UNUSED(ctx);
         return base_url_;
@@ -38,9 +44,9 @@ public:
 
     QNetworkReply *send_request(
         QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
-        unity::storage::provider::Context const& ctx) const override
+        provider::Context const& ctx) const override
     {
-        const auto& creds = boost::get<PasswordCredentials>(ctx.credentials);
+        const auto& creds = boost::get<provider::PasswordCredentials>(ctx.credentials);
         const auto credentials = QByteArray::fromStdString(creds.username + ":" +
                                                            creds.password);
         request.setRawHeader(QByteArrayLiteral("Authorization"),
@@ -65,7 +71,7 @@ protected:
 
         dav_env_.reset(new DavEnvironment(tmp_dir_->path()));
         provider_env_.reset(new ProviderEnvironment(
-                                unique_ptr<ProviderBase>(new TestDavProvider(dav_env_->base_url())),
+                                unique_ptr<provider::ProviderBase>(new TestDavProvider(dav_env_->base_url())),
                                 1, *dbus_env_));
     }
 
@@ -82,6 +88,20 @@ protected:
         return provider_env_->get_client();
     }
 
+    void make_file(string const& path)
+    {
+        string full_path = tmp_dir_->path().toStdString() + "/" + path;
+        int fd = open(full_path.c_str(), O_CREAT | O_EXCL, 0644);
+        ASSERT_GT(fd, 0);
+        ASSERT_EQ(0, close(fd));
+    }
+
+    void make_dir(string const& path)
+    {
+        string full_path = tmp_dir_->path().toStdString() + "/" + path;
+        ASSERT_EQ(0, mkdir(full_path.c_str(), 0755));
+    }
+
 private:
     std::unique_ptr<DBusEnvironment> dbus_env_;
     std::unique_ptr<QTemporaryDir> tmp_dir_;
@@ -92,7 +112,6 @@ private:
 TEST_F(DavProviderTests, roots)
 {
     auto account = get_client();
-    auto future = account->roots();
 
     QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
     QSignalSpy spy(&watcher, &decltype(watcher)::finished);
@@ -110,6 +129,149 @@ TEST_F(DavProviderTests, roots)
     EXPECT_EQ(ItemType::root, item->type());
     EXPECT_TRUE(item->parent_ids().isEmpty());
     EXPECT_TRUE(item->last_modified_time().isValid());
+}
+
+TEST_F(DavProviderTests, list)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+    make_file("bar.txt");
+    //make_dir("folder");
+    make_file("folder");
+    make_file("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n");
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    vector<shared_ptr<Item>> items;
+    {
+        QFutureWatcher<QVector<shared_ptr<Item>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->list());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto res = watcher.result();
+        items.assign(res.begin(), res.end());
+    }
+    ASSERT_EQ(4, items.size());
+    sort(items.begin(), items.end(),
+         [](shared_ptr<Item> const& a, shared_ptr<Item> const& b) -> bool {
+             return a->native_identity() < b->native_identity();
+         });
+
+    EXPECT_EQ("I%C3%B1t%C3%ABrn%C3%A2ti%C3%B4n%C3%A0liz%C3%A6ti%C3%B8n", items[0]->native_identity());
+    EXPECT_EQ(".", items[0]->parent_ids().at(0));
+    EXPECT_EQ("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n", items[0]->name());
+    EXPECT_EQ(ItemType::file, items[0]->type());
+
+    EXPECT_EQ("bar.txt", items[1]->native_identity());
+    EXPECT_EQ(".", items[1]->parent_ids().at(0));
+    EXPECT_EQ("bar.txt", items[1]->name());
+    EXPECT_EQ(ItemType::file, items[1]->type());
+
+    // FIXME: SabreDAV doesn't provide an ETag for folders, which
+    // currently trips up storage-framework's client side metadata
+    // validation.
+
+    //EXPECT_EQ("folder/", items[2]->native_identity());
+    EXPECT_EQ("folder", items[2]->native_identity());
+    EXPECT_EQ(".", items[2]->parent_ids().at(0));
+    EXPECT_EQ("folder", items[2]->name());
+    //EXPECT_EQ(ItemType::folder, items[2]->type());
+    EXPECT_EQ(ItemType::file, items[2]->type());
+
+    EXPECT_EQ("foo.txt", items[3]->native_identity());
+    EXPECT_EQ(".", items[3]->parent_ids().at(0));
+    EXPECT_EQ("foo.txt", items[3]->name());
+    EXPECT_EQ(ItemType::file, items[3]->type());
+}
+
+TEST_F(DavProviderTests, lookup)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    vector<shared_ptr<Item>> items;
+    {
+        QFutureWatcher<QVector<shared_ptr<Item>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->lookup("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto res = watcher.result();
+        items.assign(res.begin(), res.end());
+    }
+    ASSERT_EQ(1, items.size());
+    EXPECT_EQ("foo.txt", items[0]->native_identity());
+    EXPECT_EQ(".", items[0]->parent_ids().at(0));
+    EXPECT_EQ("foo.txt", items[0]->name());
+    EXPECT_EQ(ItemType::file, items[0]->type());
+}
+
+TEST_F(DavProviderTests, metadata)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Item> item;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        item = watcher.result();
+    }
+
+    EXPECT_EQ("foo.txt", item->native_identity());
+    EXPECT_EQ(".", item->parent_ids().at(0));
+    EXPECT_EQ("foo.txt", item->name());
+    EXPECT_EQ(ItemType::file, item->type());
 }
 
 int main(int argc, char**argv)
