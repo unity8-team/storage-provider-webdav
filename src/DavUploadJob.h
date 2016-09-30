@@ -18,7 +18,8 @@ class DavUploadJob : public QObject, public unity::storage::provider::UploadJob
     Q_OBJECT
 public:
     DavUploadJob(DavProvider const& provider, std::string const& item_id,
-                 int64_t size, std::string const& old_etag,
+                 int64_t size, std::string const& content_type,
+                 bool allow_overwrite, std::string const& old_etag,
                  unity::storage::provider::Context const& ctx);
     ~DavUploadJob();
 

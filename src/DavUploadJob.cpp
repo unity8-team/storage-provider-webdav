@@ -23,12 +23,23 @@ string make_upload_id()
 }
 
 DavUploadJob::DavUploadJob(DavProvider const& provider, string const& item_id,
-                           int64_t size, string const& old_etag,
+                           int64_t size, string const& content_type,
+                           bool allow_overwrite, string const& old_etag,
                            Context const& ctx)
     : QObject(), UploadJob(make_upload_id()), provider_(provider),
       base_url_(provider.base_url(ctx)), size_(size)
 {
     QNetworkRequest request(id_to_url(item_id, base_url_));
+    if (!content_type.empty())
+    {
+        request.setHeader(QNetworkRequest::ContentTypeHeader,
+                          QByteArray::fromStdString(content_type));
+    }
+    if (!allow_overwrite)
+    {
+        request.setRawHeader(QByteArrayLiteral("If-None-Match"),
+                             QByteArrayLiteral("*"));
+    }
     if (!old_etag.empty())
     {
         request.setRawHeader(QByteArrayLiteral("If-Match"),

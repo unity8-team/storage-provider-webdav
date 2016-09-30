@@ -70,7 +70,7 @@ boost::future<unique_ptr<UploadJob>> DavProvider::create_file(
     string item_id = make_child_id(parent_id, name);
     boost::promise<unique_ptr<UploadJob>> p;
     p.set_value(unique_ptr<UploadJob>(new DavUploadJob(
-        *this, item_id, size, string(), ctx)));
+        *this, item_id, size, content_type, allow_overwrite, string(), ctx)));
     return p.get_future();
 }
 
@@ -80,7 +80,7 @@ boost::future<unique_ptr<UploadJob>> DavProvider::update(
 {
     boost::promise<unique_ptr<UploadJob>> p;
     p.set_value(unique_ptr<UploadJob>(new DavUploadJob(
-        *this, item_id, size, old_etag, ctx)));
+        *this, item_id, size, string(), true, old_etag, ctx)));
     return p.get_future();
 }
 
