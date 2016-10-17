@@ -28,8 +28,9 @@ public:
 
 private:
     DavProvider const& provider_;
-    QUrl base_url_;
-    int64_t size_;
+    std::string const item_id_;
+    QUrl const base_url_;
+    int64_t const size_;
     QLocalSocket reader_;
     std::unique_ptr<QNetworkReply> reply_;
 };

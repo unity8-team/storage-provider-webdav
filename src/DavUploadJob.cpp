@@ -27,7 +27,7 @@ DavUploadJob::DavUploadJob(DavProvider const& provider, string const& item_id,
                            bool allow_overwrite, string const& old_etag,
                            Context const& ctx)
     : QObject(), UploadJob(make_upload_id()), provider_(provider),
-      base_url_(provider.base_url(ctx)), size_(size)
+      item_id_(item_id), base_url_(provider.base_url(ctx)), size_(size)
 {
     QNetworkRequest request(id_to_url(item_id, base_url_));
     if (!content_type.empty())
