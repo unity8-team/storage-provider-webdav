@@ -26,6 +26,10 @@ public:
     boost::future<void> cancel() override;
     boost::future<unity::storage::provider::Item> finish() override;
 
+private Q_SLOTS:
+    void onReplyError(QNetworkReply::NetworkError code);
+    void onReplyFinished();
+
 private:
     DavProvider const& provider_;
     std::string const item_id_;
@@ -33,4 +37,7 @@ private:
     int64_t const size_;
     QLocalSocket reader_;
     std::unique_ptr<QNetworkReply> reply_;
+
+    bool promise_set_ = false;
+    boost::promise<unity::storage::provider::Item> promise_;
 };

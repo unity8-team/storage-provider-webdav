@@ -10,8 +10,10 @@
 #include <QNetworkRequest>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <unity/storage/qt/client/Account.h>
 #include <unity/storage/qt/client/Root.h>
+#include <unity/storage/qt/client/Uploader.h>
 
 #include <gtest/gtest.h>
 
@@ -26,7 +28,21 @@ using namespace unity::storage::qt::client;
 using unity::storage::ItemType;
 namespace provider = unity::storage::provider;
 
-static constexpr int SIGNAL_WAIT_TIME = 30000;
+namespace
+{
+
+const string file_contents =
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do "
+    "eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut "
+    "enim ad minim veniam, quis nostrud exercitation ullamco laboris "
+    "nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor "
+    "in reprehenderit in voluptate velit esse cillum dolore eu fugiat "
+    "nulla pariatur. Excepteur sint occaecat cupidatat non proident, "
+    "sunt in culpa qui officia deserunt mollit anim id est laborum.";
+
+constexpr int SIGNAL_WAIT_TIME = 30000;
+
+}
 
 class TestDavProvider : public DavProvider
 {
@@ -88,9 +104,14 @@ protected:
         return provider_env_->get_client();
     }
 
+    string local_file(string const& path)
+    {
+        return tmp_dir_->path().toStdString() + "/" + path;
+    }
+
     void make_file(string const& path)
     {
-        string full_path = tmp_dir_->path().toStdString() + "/" + path;
+        string full_path = local_file(path);
         int fd = open(full_path.c_str(), O_CREAT | O_EXCL, 0644);
         ASSERT_GT(fd, 0);
         ASSERT_EQ(0, close(fd));
@@ -98,7 +119,7 @@ protected:
 
     void make_dir(string const& path)
     {
-        string full_path = tmp_dir_->path().toStdString() + "/" + path;
+        string full_path = local_file(path);
         ASSERT_EQ(0, mkdir(full_path.c_str(), 0755));
     }
 
@@ -272,6 +293,68 @@ TEST_F(DavProviderTests, metadata)
     EXPECT_EQ(".", item->parent_ids().at(0));
     EXPECT_EQ("foo.txt", item->name());
     EXPECT_EQ(ItemType::file, item->type());
+}
+
+TEST_F(DavProviderTests, create_file)
+{
+    const int segments = 50;
+
+    auto account = get_client();
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Uploader> uploader;
+    {
+        QFutureWatcher<shared_ptr<Uploader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->create_file("filename.txt", file_contents.size() * segments));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        uploader = watcher.result();
+    }
+
+    auto socket = uploader->socket();
+    int count = 0;
+    QTimer timer;
+    timer.setSingleShot(false);
+    timer.setInterval(10);
+    QFutureWatcher<shared_ptr<File>> watcher;
+    QObject::connect(&timer, &QTimer::timeout, [&] {
+            socket->write(&file_contents[0], file_contents.size());
+            count++;
+            if (count == segments)
+            {
+                watcher.setFuture(uploader->finish_upload());
+            }
+        });
+
+    QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+    timer.start();
+    ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    auto file = watcher.result();
+
+    EXPECT_EQ("filename.txt", file->native_identity());
+    EXPECT_EQ("foo", file->parent_ids().at(0));
+    EXPECT_EQ("...", file->name());
+    printf("ETag: %s\n", file->etag().toUtf8().constData());
+
+    string full_path = local_file("filename.txt");
+    struct stat buf;
+    ASSERT_EQ(0, stat(full_path.c_str(), &buf));
+    EXPECT_EQ(file_contents.size() * segments, buf.st_size);
 }
 
 int main(int argc, char**argv)
