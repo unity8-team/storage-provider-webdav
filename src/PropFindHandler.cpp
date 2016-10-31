@@ -56,8 +56,6 @@ void PropFindHandler::reportError(StorageException const& error)
     error_ = boost::copy_exception(error);
     finished_ = true;
     finish();
-
-    deleteLater();
 }
 
 void PropFindHandler::reportSuccess()
@@ -69,8 +67,6 @@ void PropFindHandler::reportSuccess()
 
     finished_ = true;
     finish();
-
-    deleteLater();
 }
 
 void PropFindHandler::onError(QNetworkReply::NetworkError code)
