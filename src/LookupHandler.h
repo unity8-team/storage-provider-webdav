@@ -1,8 +1,6 @@
 #pragma once
 
 #include <QObject>
-#include <QNetworkReply>
-#include <unity/storage/provider/Exceptions.h>
 
 #include <memory>
 
