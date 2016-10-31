@@ -18,6 +18,8 @@ public:
                     unity::storage::provider::Context const& ctx);
     ~PropFindHandler();
 
+    void abort();
+
 private Q_SLOTS:
     // From QNetworkReply
     void onError(QNetworkReply::NetworkError code);

@@ -46,6 +46,16 @@ PropFindHandler::~PropFindHandler()
 {
 }
 
+void PropFindHandler::abort()
+{
+    if (finished_)
+    {
+        return;
+    }
+    finished_ = true;
+    reply_->abort();
+}
+
 void PropFindHandler::reportError(StorageException const& error)
 {
     if (finished_)
