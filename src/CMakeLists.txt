@@ -8,6 +8,7 @@ add_library(dav-provider-lib STATIC
   ListHandler.cpp
   LookupHandler.cpp
   MetadataHandler.cpp
+  RetrieveMetadataHandler.cpp
   RootsHandler.cpp
 )
 target_compile_options(dav-provider-lib PUBLIC
