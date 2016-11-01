@@ -1,5 +1,6 @@
 #include "DavUploadJob.h"
 #include "DavProvider.h"
+#include "RetrieveMetadataHandler.h"
 #include "item_id.h"
 
 #include <unity/storage/provider/Exceptions.h>
@@ -29,7 +30,8 @@ DavUploadJob::DavUploadJob(DavProvider const& provider, string const& item_id,
                            bool allow_overwrite, string const& old_etag,
                            Context const& ctx)
     : QObject(), UploadJob(make_upload_id()), provider_(provider),
-      item_id_(item_id), base_url_(provider.base_url(ctx)), size_(size)
+      item_id_(item_id), base_url_(provider.base_url(ctx)), size_(size),
+      context_(ctx)
 {
     QNetworkRequest request(id_to_url(item_id, base_url_));
     if (!content_type.empty())
@@ -87,31 +89,39 @@ void DavUploadJob::onReplyFinished()
         promise_set_ = true;
         return;
     }
-    Item item;
-    item.item_id = item_id_;
-    item.parent_ids.push_back("foo");
-    item.name = "...";
-
-    if (reply_->hasRawHeader(QByteArrayLiteral("ETag")))
-    {
-        item.etag = reply_->rawHeader(QByteArrayLiteral("ETag")).toStdString();
-    }
-    else
-    {
-        item.etag = "xxx";
-    }
-    item.type = ItemType::file;
-    item.metadata[SIZE_IN_BYTES] = 42;
-    item.metadata[LAST_MODIFIED_TIME] = "2000-01-01T00:00:00Z";
-    promise_.set_value(std::move(item));
-    promise_set_ = true;
+    // Queue up a PROPFIND request to retrieve the metadata for the upload.
+    metadata_.reset(
+        new RetrieveMetadataHandler(
+            provider_, item_id_, context_,
+            [this](Item const& item, boost::exception_ptr const& error) {
+                if (promise_set_)
+                {
+                    return;
+                }
+                if (error)
+                {
+                    promise_.set_exception(error);
+                }
+                else
+                {
+                    promise_.set_value(item);
+                }
+                promise_set_ = true;
+            }));
 }
 
 boost::future<void> DavUploadJob::cancel()
 {
     if (!promise_set_)
     {
-        reply_->abort();
+        if (metadata_)
+        {
+            metadata_->abort();
+        }
+        else
+        {
+            reply_->abort();
+        }
     }
     return boost::make_ready_future();
 }

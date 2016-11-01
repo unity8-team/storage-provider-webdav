@@ -28,6 +28,11 @@ using namespace unity::storage::qt::client;
 using unity::storage::ItemType;
 namespace provider = unity::storage::provider;
 
+void PrintTo(QString const& str, std::ostream* os)
+{
+    *os << "QString(\"" << str.toStdString() << "\")";
+}
+
 namespace
 {
 
@@ -347,9 +352,12 @@ TEST_F(DavProviderTests, create_file)
     auto file = watcher.result();
 
     EXPECT_EQ("filename.txt", file->native_identity());
-    EXPECT_EQ("foo", file->parent_ids().at(0));
-    EXPECT_EQ("...", file->name());
-    printf("ETag: %s\n", file->etag().toUtf8().constData());
+    ASSERT_EQ(1, file->parent_ids().size());
+    EXPECT_EQ(".", file->parent_ids().at(0));
+    EXPECT_EQ("filename.txt", file->name());
+    EXPECT_NE(0, file->etag().size());
+    EXPECT_EQ(ItemType::file, file->type());
+    EXPECT_EQ(file_contents.size() * segments, file->size());
 
     string full_path = local_file("filename.txt");
     struct stat buf;

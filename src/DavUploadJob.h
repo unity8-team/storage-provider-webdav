@@ -12,6 +12,7 @@
 #include <string>
 
 class DavProvider;
+class RetrieveMetadataHandler;
 
 class DavUploadJob : public QObject, public unity::storage::provider::UploadJob
 {
@@ -35,8 +36,11 @@ private:
     std::string const item_id_;
     QUrl const base_url_;
     int64_t const size_;
+    unity::storage::provider::Context const context_;
     QLocalSocket reader_;
     std::unique_ptr<QNetworkReply> reply_;
+
+    std::unique_ptr<RetrieveMetadataHandler> metadata_;
 
     bool promise_set_ = false;
     boost::promise<unity::storage::provider::Item> promise_;
