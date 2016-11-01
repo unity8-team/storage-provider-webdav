@@ -25,6 +25,7 @@
 
 using namespace std;
 using namespace unity::storage::qt::client;
+using unity::storage::ConflictPolicy;
 using unity::storage::ItemType;
 namespace provider = unity::storage::provider;
 
@@ -302,7 +303,7 @@ TEST_F(DavProviderTests, metadata)
 
 TEST_F(DavProviderTests, create_file)
 {
-    const int segments = 50;
+    int const segments = 50;
 
     auto account = get_client();
     shared_ptr<Root> root;
@@ -363,6 +364,77 @@ TEST_F(DavProviderTests, create_file)
     struct stat buf;
     ASSERT_EQ(0, stat(full_path.c_str(), &buf));
     EXPECT_EQ(file_contents.size() * segments, buf.st_size);
+}
+
+TEST_F(DavProviderTests, update)
+{
+    int const segments = 50;
+
+    auto account = get_client();
+    make_file("foo.txt");
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<File> file;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        file = dynamic_pointer_cast<File>(watcher.result());
+    }
+    ASSERT_NE(nullptr, file.get());
+    QString old_etag = file->etag();
+
+    shared_ptr<Uploader> uploader;
+    {
+        QFutureWatcher<shared_ptr<Uploader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(file->create_uploader(ConflictPolicy::error_if_conflict, file_contents.size() * segments));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        uploader = watcher.result();
+    }
+
+    auto socket = uploader->socket();
+    int count = 0;
+    QTimer timer;
+    timer.setSingleShot(false);
+    timer.setInterval(10);
+    QFutureWatcher<shared_ptr<File>> watcher;
+    QObject::connect(&timer, &QTimer::timeout, [&] {
+            socket->write(&file_contents[0], file_contents.size());
+            count++;
+            if (count == segments)
+            {
+                watcher.setFuture(uploader->finish_upload());
+            }
+        });
+
+    QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+    timer.start();
+    ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    file = watcher.result();
+
+    EXPECT_NE(old_etag, file->etag());
+    EXPECT_EQ(file_contents.size() * segments, file->size());
 }
 
 int main(int argc, char**argv)
