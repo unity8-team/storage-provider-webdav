@@ -6,6 +6,7 @@
 #include <unity/storage/provider/Exceptions.h>
 #include <unity/storage/provider/metadata_keys.h>
 
+#include <unistd.h>
 #include <cassert>
 #include <cstdint>
 #include <string>
@@ -53,7 +54,7 @@ DavUploadJob::DavUploadJob(DavProvider const& provider, string const& item_id,
     request.setAttribute(QNetworkRequest::DoNotBufferUploadDataAttribute, true);
 
     reader_.setSocketDescriptor(
-        read_socket(), QLocalSocket::ConnectedState, QIODevice::ReadOnly);
+        dup(read_socket()), QLocalSocket::ConnectedState, QIODevice::ReadOnly);
     reply_.reset(provider.send_request(
         request, QByteArrayLiteral("PUT"), &reader_, ctx));
     assert(reply_.get() != nullptr);
