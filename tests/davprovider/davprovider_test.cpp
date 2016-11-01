@@ -12,6 +12,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <unity/storage/qt/client/Account.h>
+#include <unity/storage/qt/client/Exceptions.h>
 #include <unity/storage/qt/client/Root.h>
 #include <unity/storage/qt/client/Uploader.h>
 
@@ -127,6 +128,12 @@ protected:
     {
         string full_path = local_file(path);
         ASSERT_EQ(0, mkdir(full_path.c_str(), 0755));
+    }
+
+    void touch_file(string const& path)
+    {
+        string full_path = local_file(path);
+        ASSERT_EQ(0, utimes(full_path.c_str(), nullptr));
     }
 
 private:
@@ -372,6 +379,8 @@ TEST_F(DavProviderTests, update)
 
     auto account = get_client();
     make_file("foo.txt");
+    // Sleep to ensure modification time changes
+    sleep(1);
 
     shared_ptr<Root> root;
     {
@@ -435,6 +444,75 @@ TEST_F(DavProviderTests, update)
 
     EXPECT_NE(old_etag, file->etag());
     EXPECT_EQ(file_contents.size() * segments, file->size());
+}
+
+TEST_F(DavProviderTests, update_conflict)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+    // Sleep to ensure modification time changes
+    sleep(1);
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<File> file;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        file = dynamic_pointer_cast<File>(watcher.result());
+    }
+    ASSERT_NE(nullptr, file.get());
+
+    // Change the file after metadata has been looked up
+    touch_file("foo.txt");
+
+    shared_ptr<Uploader> uploader;
+    {
+        QFutureWatcher<shared_ptr<Uploader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(file->create_uploader(ConflictPolicy::error_if_conflict, 0));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        uploader = watcher.result();
+    }
+
+    {
+        QFutureWatcher<shared_ptr<File>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(uploader->finish_upload());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        try
+        {
+            watcher.result();
+            FAIL();
+        }
+        catch (RemoteCommsException const& e)
+        {
+            EXPECT_EQ("Error from QNetworkReply: 299", e.error_message());
+        }
+    }
 }
 
 int main(int argc, char**argv)
