@@ -373,6 +373,64 @@ TEST_F(DavProviderTests, create_file)
     EXPECT_EQ(file_contents.size() * segments, buf.st_size);
 }
 
+TEST_F(DavProviderTests, create_file_over_existing_file)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Uploader> uploader;
+    {
+        QFutureWatcher<shared_ptr<Uploader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->create_file("foo.txt", 0));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        uploader = watcher.result();
+    }
+
+    {
+        QFutureWatcher<shared_ptr<File>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(uploader->finish_upload());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        try
+        {
+            watcher.result();
+            FAIL();
+        }
+        catch (RemoteCommsException const& e)
+        {
+            EXPECT_EQ("Error from QNetworkReply: 299", e.error_message());
+        }
+    }
+}
+
+#if 0
+// v1 client API doesn't let us do this.  Revisit for v2 API.
+TEST_F(DavProviderTests, create_file_overwrite_existing)
+{
+}
+#endif
+
 TEST_F(DavProviderTests, update)
 {
     int const segments = 50;
@@ -511,6 +569,56 @@ TEST_F(DavProviderTests, update_conflict)
         catch (RemoteCommsException const& e)
         {
             EXPECT_EQ("Error from QNetworkReply: 299", e.error_message());
+        }
+    }
+}
+
+TEST_F(DavProviderTests, upload_short_write)
+{
+    auto account = get_client();
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Uploader> uploader;
+    {
+        QFutureWatcher<shared_ptr<Uploader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->create_file("foo.txt", 1000));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        uploader = watcher.result();
+    }
+
+    {
+        QFutureWatcher<shared_ptr<File>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(uploader->finish_upload());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        try
+        {
+            watcher.result();
+            FAIL();
+        }
+        catch (RemoteCommsException const& e)
+        {
+            EXPECT_EQ("Error from QNetworkReply: 99", e.error_message());
         }
     }
 }
