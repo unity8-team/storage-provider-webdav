@@ -23,6 +23,8 @@ boost::future<tuple<ItemList,string>> ListHandler::get_future()
 
 void ListHandler::finish()
 {
+    deleteLater();
+
     if (error_)
     {
         promise_.set_exception(error_);

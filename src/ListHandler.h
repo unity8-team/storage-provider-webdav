@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QObject>
-#include <QNetworkReply>
 
 #include <memory>
 #include <tuple>

@@ -107,7 +107,7 @@ class Manager(dbus.service.Object):
     @dbus.service.method(dbus_interface=OA_IFACE,
                          in_signature="a{sv}", out_signature="a(ua{sv})")
     def GetAccounts(self, filters):
-        print("GetAccounts %r" % filters)
+        # print("GetAccounts %r" % filters)
         sys.stdout.flush()
         return dbus.Array([a.serialise() for a in self.accounts],
                           signature="a(ua{sv})")
@@ -115,7 +115,7 @@ class Manager(dbus.service.Object):
     @dbus.service.method(dbus_interface=OA_IFACE,
                          in_signature="usbba{sv}", out_signature="a{sv}")
     def Authenticate(self, account_id, service_id, interactive, invalidate, parameters):
-        print("Authenticate %r %r %r %r %r" % (account_id, service_id, interactive, invalidate, parameters))
+        # print("Authenticate %r %r %r %r %r" % (account_id, service_id, interactive, invalidate, parameters))
         sys.stdout.flush()
         for account in self.accounts:
             if account.account_id == account_id and account.service_id == service_id:
@@ -126,7 +126,7 @@ class Manager(dbus.service.Object):
     @dbus.service.method(dbus_interface=OA_IFACE,
                          in_signature="sa{sv}", out_signature="(ua{sv})a{sv}")
     def RequestAccess(self, service_id, parameters):
-        print("RequestAccess %r %r" % (service_id, parameters))
+        # print("RequestAccess %r %r" % (service_id, parameters))
         sys.stdout.flush()
         for account in self.accounts:
             if account.service_id == service_id:

@@ -1,12 +1,14 @@
 
 add_library(dav-provider-lib STATIC
   DavProvider.cpp
+  DavUploadJob.cpp
   MultiStatusParser.cpp
   item_id.cpp
   PropFindHandler.cpp
   ListHandler.cpp
   LookupHandler.cpp
   MetadataHandler.cpp
+  RetrieveMetadataHandler.cpp
   RootsHandler.cpp
 )
 target_compile_options(dav-provider-lib PUBLIC

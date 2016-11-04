@@ -20,6 +20,8 @@ boost::future<Item> MetadataHandler::get_future()
 
 void MetadataHandler::finish()
 {
+    deleteLater();
+
     if (error_)
     {
         promise_.set_exception(error_);

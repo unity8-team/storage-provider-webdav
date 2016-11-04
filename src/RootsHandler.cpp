@@ -19,6 +19,8 @@ boost::future<ItemList> RootsHandler::get_future()
 
 void RootsHandler::finish()
 {
+    deleteLater();
+
     if (error_)
     {
         promise_.set_exception(error_);

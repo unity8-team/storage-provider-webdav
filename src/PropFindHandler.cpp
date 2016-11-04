@@ -46,6 +46,16 @@ PropFindHandler::~PropFindHandler()
 {
 }
 
+void PropFindHandler::abort()
+{
+    if (finished_)
+    {
+        return;
+    }
+    finished_ = true;
+    reply_->abort();
+}
+
 void PropFindHandler::reportError(StorageException const& error)
 {
     if (finished_)
@@ -56,8 +66,6 @@ void PropFindHandler::reportError(StorageException const& error)
     error_ = boost::copy_exception(error);
     finished_ = true;
     finish();
-
-    deleteLater();
 }
 
 void PropFindHandler::reportSuccess()
@@ -69,8 +77,6 @@ void PropFindHandler::reportSuccess()
 
     finished_ = true;
     finish();
-
-    deleteLater();
 }
 
 void PropFindHandler::onError(QNetworkReply::NetworkError code)
