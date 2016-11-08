@@ -85,14 +85,12 @@ void DavDownloadJob::onReplyReadyRead()
         }
     }
 
-    ready_read_ = true;
     maybe_send_chunk();
 }
 
 void DavDownloadJob::onReplyReadChannelFinished()
 {
     read_channel_finished_ = true;
-    ready_read_ = true;
     maybe_send_chunk();
 }
 
@@ -105,9 +103,20 @@ void DavDownloadJob::onSocketBytesWritten(int64_t bytes)
 void DavDownloadJob::maybe_send_chunk()
 {
     assert(bytes_written_ <= bytes_read_);
-    // If there are outstanding writes, or there is no data to read, do nothing.
-    if (bytes_written_ < bytes_read_ || !ready_read_)
+    // If there are outstanding writes, do nothing.
+    if (bytes_written_ < bytes_read_)
     {
+        return;
+    }
+    // If there are no bytes available, return (and set the job as
+    // complete if applicable).
+    if (reply_->bytesAvailable() == 0)
+    {
+        if (read_channel_finished_)
+        {
+            writer_.close();
+            report_complete();
+        }
         return;
     }
 
@@ -119,17 +128,6 @@ void DavDownloadJob::maybe_send_chunk()
         return;
     }
     bytes_read_ += n_read;
-    ready_read_ = false;
-
-    if (n_read == 0)
-    {
-        if (read_channel_finished_)
-        {
-            writer_.close();
-            report_complete();
-        }
-        return;
-    }
 
     int n_written = writer_.write(buffer, n_read);
     if (n_written < 0)

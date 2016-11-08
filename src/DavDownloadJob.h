@@ -42,7 +42,6 @@ private:
     QLocalSocket writer_;
     std::unique_ptr<QNetworkReply> reply_;
 
-    bool ready_read_ = false;
     bool read_channel_finished_ = false;
     bool seen_header_ = false;
     int64_t bytes_read_ = 0;
