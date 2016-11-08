@@ -157,5 +157,5 @@ boost::future<void> DavDownloadJob::cancel()
 boost::future<void> DavDownloadJob::finish()
 {
     return boost::make_exceptional_future<void>(
-        LogicException("finish() called before all data sent."));
+        LogicException("finish called before all data sent"));
 }
