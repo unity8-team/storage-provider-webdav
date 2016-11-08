@@ -1,6 +1,7 @@
 
 add_library(dav-provider-lib STATIC
   DavProvider.cpp
+  DavDownloadJob.cpp
   DavUploadJob.cpp
   MultiStatusParser.cpp
   item_id.cpp

@@ -4,6 +4,7 @@
 #include "ListHandler.h"
 #include "LookupHandler.h"
 #include "MetadataHandler.h"
+#include "DavDownloadJob.h"
 #include "DavUploadJob.h"
 #include "item_id.h"
 
@@ -87,6 +88,10 @@ boost::future<unique_ptr<UploadJob>> DavProvider::update(
 boost::future<unique_ptr<DownloadJob>> DavProvider::download(
     string const& item_id, Context const& ctx)
 {
+    boost::promise<unique_ptr<DownloadJob>> p;
+    p.set_value(unique_ptr<DownloadJob>(new DavDownloadJob(
+        *this, item_id, string(), ctx)));
+    return p.get_future();
 }
 
 boost::future<void> DavProvider::delete_item(
