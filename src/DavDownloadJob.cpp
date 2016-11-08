@@ -46,6 +46,7 @@ DavDownloadJob::DavDownloadJob(DavProvider const& provider,
     reply_.reset(provider.send_request(
         request, QByteArrayLiteral("GET"), nullptr, ctx));
     assert(reply_.get() != nullptr);
+    reply_->setReadBufferSize(CHUNK_SIZE);
     connect(reply_.get(), &QNetworkReply::finished,
             this, &DavDownloadJob::onReplyFinished);
     connect(reply_.get(), &QIODevice::readyRead,
