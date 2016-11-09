@@ -99,6 +99,13 @@ void DavDownloadJob::onSocketBytesWritten(int64_t bytes)
 {
     bytes_written_ += bytes;
     maybe_send_chunk();
+    // If we've reached the end of the input, and all data has been
+    // written out, signal completion.
+    if (at_end_ && bytes_written_ == bytes_read_)
+    {
+        writer_.close();
+        report_complete();
+    }
 }
 
 void DavDownloadJob::maybe_send_chunk()
@@ -109,14 +116,12 @@ void DavDownloadJob::maybe_send_chunk()
     {
         return;
     }
-    // If there are no bytes available, return (and set the job as
-    // complete if applicable).
+    // If there are no bytes available, return.
     if (reply_->bytesAvailable() == 0)
     {
         if (read_channel_finished_)
         {
-            writer_.close();
-            report_complete();
+            at_end_ = true;
         }
         return;
     }
