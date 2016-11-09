@@ -749,7 +749,7 @@ TEST_F(DavProviderTests, download)
 
 TEST_F(DavProviderTests, download_short_read)
 {
-    int const segments = 50;
+    int const segments = 1000;
     {
         string full_path = local_file("foo.txt");
         int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
