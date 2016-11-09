@@ -80,6 +80,11 @@ void DavDownloadJob::onReplyFinished()
 
 void DavDownloadJob::onReplyReadyRead()
 {
+    if (error_)
+    {
+        return;
+    }
+
     if (!seen_header_)
     {
         seen_header_ = true;
@@ -97,12 +102,22 @@ void DavDownloadJob::onReplyReadyRead()
 
 void DavDownloadJob::onReplyReadChannelFinished()
 {
+    if (error_)
+    {
+        return;
+    }
+
     read_channel_finished_ = true;
     maybe_send_chunk();
 }
 
 void DavDownloadJob::onSocketBytesWritten(int64_t bytes)
 {
+    if (error_)
+    {
+        return;
+    }
+
     bytes_written_ += bytes;
     maybe_send_chunk();
 }
@@ -147,6 +162,7 @@ void DavDownloadJob::maybe_send_chunk()
 
 void DavDownloadJob::handle_error(StorageException const& exc)
 {
+    error_ = true;
     reply_->close();
     writer_.close();
     report_error(std::make_exception_ptr(exc));

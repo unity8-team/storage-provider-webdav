@@ -44,6 +44,7 @@ private:
     QPointer<QNetworkReply> reply_;
 
     bool seen_header_ = false;
+    bool error_ = false;
     bool read_channel_finished_ = false;
     int64_t bytes_read_ = 0;
     int64_t bytes_written_ = 0;

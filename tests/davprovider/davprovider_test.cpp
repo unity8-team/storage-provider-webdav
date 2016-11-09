@@ -822,6 +822,83 @@ TEST_F(DavProviderTests, download_short_read)
     }
 }
 
+TEST_F(DavProviderTests, download_not_found)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<File> file;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        file = dynamic_pointer_cast<File>(watcher.result());
+    }
+    ASSERT_NE(nullptr, file.get());
+
+    ASSERT_EQ(0, unlink(local_file("foo.txt").c_str()));
+
+    shared_ptr<Downloader> downloader;
+    {
+        QFutureWatcher<shared_ptr<Downloader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(file->create_downloader());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        downloader = watcher.result();
+    }
+
+    auto socket = downloader->socket();
+    QObject::connect(socket.get(), &QIODevice::readyRead,
+                     [socket]() {
+                         socket->readAll();
+                     });
+    {
+        QSignalSpy spy(socket.get(), &QIODevice::readChannelFinished);
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
+
+    {
+        QFutureWatcher<void> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(downloader->finish_download());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+
+        try
+        {
+            watcher.waitForFinished(); // to check for errors
+            FAIL();
+        }
+        catch (RemoteCommsException const& e)
+        {
+            EXPECT_EQ("Unexpected status code: 404", e.error_message());
+        }
+    }
+}
+
 int main(int argc, char**argv)
 {
     QCoreApplication app(argc, argv);
