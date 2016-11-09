@@ -43,15 +43,15 @@ DavDownloadJob::DavDownloadJob(DavProvider const& provider,
                              QByteArray::fromStdString(match_etag));
     }
 
-    reply_.reset(provider.send_request(
-        request, QByteArrayLiteral("GET"), nullptr, ctx));
-    assert(reply_.get() != nullptr);
+    reply_ = provider.send_request(
+        request, QByteArrayLiteral("GET"), nullptr, ctx);
+    assert(reply_ != nullptr);
     reply_->setReadBufferSize(CHUNK_SIZE);
-    connect(reply_.get(), &QNetworkReply::finished,
+    connect(reply_, &QNetworkReply::finished,
             this, &DavDownloadJob::onReplyFinished);
-    connect(reply_.get(), &QIODevice::readyRead,
+    connect(reply_, &QIODevice::readyRead,
             this, &DavDownloadJob::onReplyReadyRead);
-    connect(reply_.get(), &QIODevice::readChannelFinished,
+    connect(reply_, &QIODevice::readChannelFinished,
             this, &DavDownloadJob::onReplyReadChannelFinished);
     writer_.setSocketDescriptor(
         dup(write_socket()), QLocalSocket::ConnectedState, QIODevice::WriteOnly);
@@ -59,7 +59,13 @@ DavDownloadJob::DavDownloadJob(DavProvider const& provider,
             this, &DavDownloadJob::onSocketBytesWritten);
 }
 
-DavDownloadJob::~DavDownloadJob() = default;
+DavDownloadJob::~DavDownloadJob()
+{
+    if (!reply_.isNull())
+    {
+        reply_->deleteLater();
+    }
+}
 
 void DavDownloadJob::onReplyFinished()
 {
@@ -99,13 +105,6 @@ void DavDownloadJob::onSocketBytesWritten(int64_t bytes)
 {
     bytes_written_ += bytes;
     maybe_send_chunk();
-    // If we've reached the end of the input, and all data has been
-    // written out, signal completion.
-    if (at_end_ && bytes_written_ == bytes_read_)
-    {
-        writer_.close();
-        report_complete();
-    }
 }
 
 void DavDownloadJob::maybe_send_chunk()
@@ -119,9 +118,12 @@ void DavDownloadJob::maybe_send_chunk()
     // If there are no bytes available, return.
     if (reply_->bytesAvailable() == 0)
     {
-        if (read_channel_finished_)
+        // If we've reached the end of the input, and all data has been
+        // written out, signal completion.
+        if (read_channel_finished_ && bytes_written_ == bytes_read_)
         {
-            at_end_ = true;
+            writer_.close();
+            report_complete();
         }
         return;
     }

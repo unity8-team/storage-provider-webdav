@@ -3,6 +3,7 @@
 #include <QLocalSocket>
 #include <QNetworkReply>
 #include <QObject>
+#include <QPointer>
 #include <QUrl>
 #include <unity/storage/provider/Exceptions.h>
 #include <unity/storage/provider/ProviderBase.h>
@@ -40,11 +41,10 @@ private:
     DavProvider const& provider_;
     std::string const item_id_;
     QLocalSocket writer_;
-    std::unique_ptr<QNetworkReply> reply_;
+    QPointer<QNetworkReply> reply_;
 
     bool seen_header_ = false;
     bool read_channel_finished_ = false;
-    bool at_end_ = false;
     int64_t bytes_read_ = 0;
     int64_t bytes_written_ = 0;
 };
