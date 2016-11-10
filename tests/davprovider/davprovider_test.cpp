@@ -309,6 +309,37 @@ TEST_F(DavProviderTests, metadata)
     EXPECT_EQ(ItemType::file, item->type());
 }
 
+TEST_F(DavProviderTests, create_folder)
+{
+    auto account = get_client();
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Folder> folder;
+    {
+        QFutureWatcher<shared_ptr<Folder>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->create_folder("folder"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        folder = watcher.result();
+    }
+}
+
 TEST_F(DavProviderTests, create_file)
 {
     int const segments = 50;
