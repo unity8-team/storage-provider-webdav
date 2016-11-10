@@ -670,14 +670,17 @@ TEST_F(DavProviderTests, upload_cancel)
 TEST_F(DavProviderTests, download)
 {
     int const segments = 1000;
+    string large_contents;
+    large_contents.reserve(file_contents.size() * segments);
+    for (int i = 0; i < segments; i++)
     {
-        string full_path = local_file("foo.txt");
+        large_contents += file_contents;
+    }
+    string const full_path = local_file("foo.txt");
+    {
         int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
         ASSERT_GT(fd, 0);
-        for (int i = 0; i < segments; i++)
-        {
-            ASSERT_EQ(file_contents.size(), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
-        }
+        ASSERT_EQ(large_contents.size(), write(fd, &large_contents[0], large_contents.size())) << strerror(errno);
         ASSERT_EQ(0, close(fd));
     }
 
@@ -724,8 +727,11 @@ TEST_F(DavProviderTests, download)
     int64_t n_read = 0;
     auto socket = downloader->socket();
     QObject::connect(socket.get(), &QIODevice::readyRead,
-                     [socket, &n_read]() {
+                     [socket, &large_contents, &n_read]() {
                          auto bytes = socket->readAll();
+                         string const expected = large_contents.substr(
+                             n_read, bytes.size());
+                         EXPECT_EQ(expected, bytes.toStdString());
                          n_read += bytes.size();
                      });
     {
@@ -744,7 +750,7 @@ TEST_F(DavProviderTests, download)
         watcher.waitForFinished(); // to check for errors
     }
 
-    EXPECT_EQ(file_contents.size() * segments, n_read);
+    EXPECT_EQ(large_contents.size(), n_read);
 }
 
 TEST_F(DavProviderTests, download_short_read)
