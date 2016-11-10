@@ -5,6 +5,7 @@ add_library(dav-provider-lib STATIC
   DavUploadJob.cpp
   MultiStatusParser.cpp
   item_id.cpp
+  CreateFolderHandler.cpp
   PropFindHandler.cpp
   ListHandler.cpp
   LookupHandler.cpp
