@@ -12,6 +12,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <unity/storage/qt/client/Account.h>
+#include <unity/storage/qt/client/Downloader.h>
 #include <unity/storage/qt/client/Exceptions.h>
 #include <unity/storage/qt/client/Root.h>
 #include <unity/storage/qt/client/Uploader.h>
@@ -45,7 +46,7 @@ const string file_contents =
     "nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor "
     "in reprehenderit in voluptate velit esse cillum dolore eu fugiat "
     "nulla pariatur. Excepteur sint occaecat cupidatat non proident, "
-    "sunt in culpa qui officia deserunt mollit anim id est laborum.";
+    "sunt in culpa qui officia deserunt mollit anim id est laborum.\n";
 
 constexpr int SIGNAL_WAIT_TIME = 30000;
 
@@ -663,6 +664,244 @@ TEST_F(DavProviderTests, upload_cancel)
         // QFuture<void> doesn't have result, but exceptions will be
         // thrown from waitForFinished().
         watcher.waitForFinished();
+    }
+}
+
+TEST_F(DavProviderTests, download)
+{
+    int const segments = 1000;
+    string large_contents;
+    large_contents.reserve(file_contents.size() * segments);
+    for (int i = 0; i < segments; i++)
+    {
+        large_contents += file_contents;
+    }
+    string const full_path = local_file("foo.txt");
+    {
+        int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        ASSERT_GT(fd, 0);
+        ASSERT_EQ(large_contents.size(), write(fd, &large_contents[0], large_contents.size())) << strerror(errno);
+        ASSERT_EQ(0, close(fd));
+    }
+
+    auto account = get_client();
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<File> file;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        file = dynamic_pointer_cast<File>(watcher.result());
+    }
+    ASSERT_NE(nullptr, file.get());
+
+    shared_ptr<Downloader> downloader;
+    {
+        QFutureWatcher<shared_ptr<Downloader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(file->create_downloader());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        downloader = watcher.result();
+    }
+
+    int64_t n_read = 0;
+    auto socket = downloader->socket();
+    QObject::connect(socket.get(), &QIODevice::readyRead,
+                     [socket, &large_contents, &n_read]() {
+                         auto bytes = socket->readAll();
+                         string const expected = large_contents.substr(
+                             n_read, bytes.size());
+                         EXPECT_EQ(expected, bytes.toStdString());
+                         n_read += bytes.size();
+                     });
+    {
+        QSignalSpy spy(socket.get(), &QIODevice::readChannelFinished);
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
+
+    {
+        QFutureWatcher<void> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(downloader->finish_download());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        watcher.waitForFinished(); // to check for errors
+    }
+
+    EXPECT_EQ(large_contents.size(), n_read);
+}
+
+TEST_F(DavProviderTests, download_short_read)
+{
+    int const segments = 1000;
+    {
+        string full_path = local_file("foo.txt");
+        int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        ASSERT_GT(fd, 0);
+        for (int i = 0; i < segments; i++)
+        {
+            ASSERT_EQ(file_contents.size(), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
+        }
+        ASSERT_EQ(0, close(fd));
+    }
+
+    auto account = get_client();
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<File> file;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        file = dynamic_pointer_cast<File>(watcher.result());
+    }
+    ASSERT_NE(nullptr, file.get());
+
+    shared_ptr<Downloader> downloader;
+    {
+        QFutureWatcher<shared_ptr<Downloader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(file->create_downloader());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        downloader = watcher.result();
+    }
+
+    {
+        QFutureWatcher<void> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(downloader->finish_download());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+
+        try
+        {
+            watcher.waitForFinished(); // to check for errors
+            FAIL();
+        }
+        catch (LogicException const& e)
+        {
+            EXPECT_EQ("finish called before all data sent", e.error_message());
+        }
+    }
+}
+
+TEST_F(DavProviderTests, download_not_found)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<File> file;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        file = dynamic_pointer_cast<File>(watcher.result());
+    }
+    ASSERT_NE(nullptr, file.get());
+
+    ASSERT_EQ(0, unlink(local_file("foo.txt").c_str()));
+
+    shared_ptr<Downloader> downloader;
+    {
+        QFutureWatcher<shared_ptr<Downloader>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(file->create_downloader());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        downloader = watcher.result();
+    }
+
+    auto socket = downloader->socket();
+    QObject::connect(socket.get(), &QIODevice::readyRead,
+                     [socket]() {
+                         socket->readAll();
+                     });
+    {
+        QSignalSpy spy(socket.get(), &QIODevice::readChannelFinished);
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
+
+    {
+        QFutureWatcher<void> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(downloader->finish_download());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+
+        try
+        {
+            watcher.waitForFinished(); // to check for errors
+            FAIL();
+        }
+        catch (RemoteCommsException const& e)
+        {
+            EXPECT_EQ("Unexpected status code: 404", e.error_message());
+        }
     }
 }
 
