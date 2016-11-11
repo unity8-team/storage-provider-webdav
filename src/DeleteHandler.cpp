@@ -13,7 +13,6 @@ DeleteHandler::DeleteHandler(DavProvider const& provider,
                              Context const& ctx)
     : provider_(provider), item_id_(item_id)
 {
-    printf("Delete %s\n", item_id.c_str());
     QUrl const base_url = provider.base_url(ctx);
     QNetworkRequest request(id_to_url(item_id_, base_url));
     reply_.reset(provider.send_request(request, QByteArrayLiteral("DELETE"),
