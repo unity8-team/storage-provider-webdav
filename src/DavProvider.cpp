@@ -7,6 +7,7 @@
 #include "DavDownloadJob.h"
 #include "DavUploadJob.h"
 #include "CreateFolderHandler.h"
+#include "DeleteHandler.h"
 #include "item_id.h"
 
 #include <QDateTime>
@@ -100,6 +101,8 @@ boost::future<unique_ptr<DownloadJob>> DavProvider::download(
 boost::future<void> DavProvider::delete_item(
     string const& item_id, Context const& ctx)
 {
+    auto handler = new DeleteHandler(*this, item_id, ctx);
+    return handler->get_future();
 }
 
 boost::future<Item> DavProvider::move(
