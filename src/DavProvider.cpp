@@ -6,6 +6,7 @@
 #include "MetadataHandler.h"
 #include "DavDownloadJob.h"
 #include "DavUploadJob.h"
+#include "CreateFolderHandler.h"
 #include "item_id.h"
 
 #include <QDateTime>
@@ -62,6 +63,8 @@ boost::future<Item> DavProvider::metadata(
 boost::future<Item> DavProvider::create_folder(
     string const& parent_id, string const& name, Context const& ctx)
 {
+    auto handler = new CreateFolderHandler(*this, parent_id, name, ctx);
+    return handler->get_future();
 }
 
 boost::future<unique_ptr<UploadJob>> DavProvider::create_file(
