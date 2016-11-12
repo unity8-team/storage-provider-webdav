@@ -74,10 +74,6 @@ string make_child_id(string const& parent_id, string const& name, bool is_folder
 
 bool is_folder(string const& item_id)
 {
-    if (item_id == ".")
-    {
-        return true;
-    }
     auto size = item_id.size();
     if (size == 0)
     {
