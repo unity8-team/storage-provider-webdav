@@ -8,6 +8,7 @@
 #include "DavUploadJob.h"
 #include "CreateFolderHandler.h"
 #include "DeleteHandler.h"
+#include "CopyMoveHandler.h"
 #include "item_id.h"
 
 #include <QDateTime>
@@ -109,12 +110,18 @@ boost::future<Item> DavProvider::move(
     string const& item_id, string const& new_parent_id, string const& new_name,
     Context const& ctx)
 {
+    auto handler = new CopyMoveHandler(*this, item_id, new_parent_id,
+                                       new_name, false, ctx);
+    return handler->get_future();
 }
 
 boost::future<Item> DavProvider::copy(
     string const& item_id, string const& new_parent_id, string const& new_name,
     Context const& ctx)
 {
+    auto handler = new CopyMoveHandler(*this, item_id, new_parent_id,
+                                       new_name, true, ctx);
+    return handler->get_future();
 }
 
 Item DavProvider::make_item(QUrl const& href, QUrl const& base_url,
