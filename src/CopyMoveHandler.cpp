@@ -19,7 +19,7 @@ CopyMoveHandler::CopyMoveHandler(DavProvider const& provider,
     QNetworkRequest request(id_to_url(item_id_, base_url));
     request.setRawHeader(QByteArrayLiteral("Destination"),
                          id_to_url(new_item_id_, base_url).toEncoded());
-    // FIXME: what behaviour do we expect when the destination exists?
+    // Error out of the operation would overwrite an existing resource.
     request.setRawHeader(QByteArrayLiteral("Overwrite"),
                          QByteArrayLiteral("F"));
 
