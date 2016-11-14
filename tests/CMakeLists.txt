@@ -15,6 +15,7 @@ set(unit_test_dirs
   multistatus
   item_id
   davprovider
+  http_error
 )
 
 set(UNIT_TEST_TARGETS "")
