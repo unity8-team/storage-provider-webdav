@@ -16,11 +16,12 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <unity/storage/common.h>
 #include <unity/storage/provider/Exceptions.h>
-#include <unity/storage/provider/metadata_keys.h>
 
 using namespace std;
 using namespace unity::storage::provider;
+using namespace unity::storage::metadata;
 using unity::storage::ItemType;
 
 DavProvider::DavProvider()
@@ -30,15 +31,19 @@ DavProvider::DavProvider()
 
 DavProvider::~DavProvider() = default;
 
-boost::future<ItemList> DavProvider::roots(Context const& ctx)
+boost::future<ItemList> DavProvider::roots(
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     auto handler = new RootsHandler(*this, ctx);
     return handler->get_future();
 }
 
 boost::future<tuple<ItemList,string>> DavProvider::list(
-    string const& item_id, string const& page_token, Context const& ctx)
+    string const& item_id, string const& page_token,
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     if (!page_token.empty())
     {
         throw InvalidArgumentException("Invalid paging token: " + page_token);
@@ -48,31 +53,39 @@ boost::future<tuple<ItemList,string>> DavProvider::list(
 }
 
 boost::future<ItemList> DavProvider::lookup(
-    string const& parent_id, string const& name, Context const& ctx)
+    string const& parent_id, string const& name,
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     string item_id = make_child_id(parent_id, name);
     auto handler = new LookupHandler(*this, item_id, ctx);
     return handler->get_future();
 }
 
 boost::future<Item> DavProvider::metadata(
-    string const& item_id, Context const& ctx)
+    string const& item_id, vector<string> const& metadata_keys,
+    Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     auto handler = new MetadataHandler(*this, item_id, ctx);
     return handler->get_future();
 }
 
 boost::future<Item> DavProvider::create_folder(
-    string const& parent_id, string const& name, Context const& ctx)
+    string const& parent_id, string const& name,
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     auto handler = new CreateFolderHandler(*this, parent_id, name, ctx);
     return handler->get_future();
 }
 
 boost::future<unique_ptr<UploadJob>> DavProvider::create_file(
     string const& parent_id, string const& name, int64_t size,
-    string const& content_type, bool allow_overwrite, Context const& ctx)
+    string const& content_type, bool allow_overwrite,
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     string item_id = make_child_id(parent_id, name);
     boost::promise<unique_ptr<UploadJob>> p;
     p.set_value(unique_ptr<UploadJob>(new DavUploadJob(
@@ -82,8 +95,9 @@ boost::future<unique_ptr<UploadJob>> DavProvider::create_file(
 
 boost::future<unique_ptr<UploadJob>> DavProvider::update(
     string const& item_id, int64_t size, string const& old_etag,
-    Context const& ctx)
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     boost::promise<unique_ptr<UploadJob>> p;
     p.set_value(unique_ptr<UploadJob>(new DavUploadJob(
         *this, item_id, size, string(), true, old_etag, ctx)));
@@ -91,11 +105,11 @@ boost::future<unique_ptr<UploadJob>> DavProvider::update(
 }
 
 boost::future<unique_ptr<DownloadJob>> DavProvider::download(
-    string const& item_id, Context const& ctx)
+    string const& item_id, string const& match_etag, Context const& ctx)
 {
     boost::promise<unique_ptr<DownloadJob>> p;
     p.set_value(unique_ptr<DownloadJob>(new DavDownloadJob(
-        *this, item_id, string(), ctx)));
+        *this, item_id, match_etag, ctx)));
     return p.get_future();
 }
 
@@ -108,8 +122,9 @@ boost::future<void> DavProvider::delete_item(
 
 boost::future<Item> DavProvider::move(
     string const& item_id, string const& new_parent_id, string const& new_name,
-    Context const& ctx)
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     auto handler = new CopyMoveHandler(*this, item_id, new_parent_id,
                                        new_name, false, ctx);
     return handler->get_future();
@@ -117,8 +132,9 @@ boost::future<Item> DavProvider::move(
 
 boost::future<Item> DavProvider::copy(
     string const& item_id, string const& new_parent_id, string const& new_name,
-    Context const& ctx)
+    vector<string> const& metadata_keys, Context const& ctx)
 {
+    Q_UNUSED(metadata_keys);
     auto handler = new CopyMoveHandler(*this, item_id, new_parent_id,
                                        new_name, true, ctx);
     return handler->get_future();
