@@ -59,6 +59,10 @@ TEST(ItemId, make_child_id)
     EXPECT_EQ("foo/bar", make_child_id("foo", "bar"));
     EXPECT_EQ("foo/bar", make_child_id("foo/", "bar"));
 
+    // Constructing a folder-type child ID
+    EXPECT_EQ("foo/", make_child_id(".", "foo", true));
+    EXPECT_EQ("foo/bar/", make_child_id("foo/", "bar", true));
+
     EXPECT_EQ("foo/hello%20world%3F", make_child_id("foo/", "hello world?"));
     EXPECT_EQ("foo/na%C3%AFve", make_child_id("foo/", "na\u00EFve"));
 
@@ -66,6 +70,17 @@ TEST(ItemId, make_child_id)
     EXPECT_THROW(make_child_id("foo/", ".."), InvalidArgumentException);
 }
 
+TEST(ItemId, is_folder)
+{
+    EXPECT_TRUE(is_folder("."));
+    EXPECT_TRUE(is_folder("foo/"));
+    EXPECT_TRUE(is_folder("foo/bar/"));
+
+    EXPECT_FALSE(is_folder("foo"));
+    EXPECT_FALSE(is_folder("foo/bar"));
+
+    EXPECT_THROW(is_folder(""), InvalidArgumentException);
+}
 
 int main(int argc, char**argv)
 {

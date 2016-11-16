@@ -17,7 +17,6 @@
 
 """A fake version of the OnlineAccounts D-Bus service."""
 
-import os
 import sys
 
 import dbus.service
@@ -27,9 +26,6 @@ from gi.repository import GLib
 BUS_NAME = "com.ubuntu.OnlineAccounts.Manager"
 OBJECT_PATH = "/com/ubuntu/OnlineAccounts/Manager"
 OA_IFACE = "com.ubuntu.OnlineAccounts.Manager"
-
-INTERFACE_XML = os.path.join(os.path.dirname(__file__),
-                             "com.ubuntu.OnlineAccounts.Manager.xml")
 
 AUTH_OAUTH1 = 1
 AUTH_OAUTH2 = 2
@@ -105,12 +101,12 @@ class Manager(dbus.service.Object):
         self.accounts = accounts
 
     @dbus.service.method(dbus_interface=OA_IFACE,
-                         in_signature="a{sv}", out_signature="a(ua{sv})")
+                         in_signature="a{sv}", out_signature="a(ua{sv})aa{sv}")
     def GetAccounts(self, filters):
         # print("GetAccounts %r" % filters)
         sys.stdout.flush()
         return dbus.Array([a.serialise() for a in self.accounts],
-                          signature="a(ua{sv})")
+                          signature="a(ua{sv})"), dbus.Array([], signature="a{sv}")
 
     @dbus.service.method(dbus_interface=OA_IFACE,
                          in_signature="usbba{sv}", out_signature="a{sv}")
