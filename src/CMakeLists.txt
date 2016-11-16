@@ -6,6 +6,7 @@ add_library(dav-provider-lib STATIC
   MultiStatusParser.cpp
   http_error.cpp
   item_id.cpp
+  CopyMoveHandler.cpp
   CreateFolderHandler.cpp
   DeleteHandler.cpp
   PropFindHandler.cpp

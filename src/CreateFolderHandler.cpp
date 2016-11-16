@@ -9,7 +9,7 @@ CreateFolderHandler::CreateFolderHandler(DavProvider const& provider,
                                          string const& parent_id,
                                          string const& name,
                                          Context const& ctx)
-    : provider_(provider), item_id_(make_child_id(parent_id, name) + '/'),
+    : provider_(provider), item_id_(make_child_id(parent_id, name, true)),
       context_(ctx)
 {
     QUrl const base_url = provider.base_url(ctx);

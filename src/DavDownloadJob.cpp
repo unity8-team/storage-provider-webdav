@@ -4,7 +4,6 @@
 #include "item_id.h"
 
 #include <unity/storage/provider/Exceptions.h>
-#include <unity/storage/provider/metadata_keys.h>
 
 #include <unistd.h>
 #include <cassert>

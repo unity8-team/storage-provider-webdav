@@ -1124,6 +1124,159 @@ TEST_F(DavProviderTests, delete_item_not_found)
     }
 }
 
+TEST_F(DavProviderTests, move)
+{
+    string const full_path = local_file("foo.txt");
+    {
+        int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        ASSERT_GT(fd, 0);
+        ASSERT_EQ(file_contents.size(), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
+        ASSERT_EQ(0, close(fd));
+    }
+
+    auto account = get_client();
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Item> item;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        item = watcher.result();
+    }
+
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(item->move(root, "new-name.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        item = watcher.result();
+    }
+
+    EXPECT_EQ("new-name.txt", item->native_identity());
+    ASSERT_EQ(1, item->parent_ids().size());
+    EXPECT_EQ(".", item->parent_ids().at(0));
+    EXPECT_EQ("new-name.txt", item->name());
+    EXPECT_NE(0, item->etag().size());
+    EXPECT_EQ(ItemType::file, item->type());
+    EXPECT_EQ(file_contents.size(), dynamic_pointer_cast<File>(item)->size());
+
+    // The old file no longer exists
+    struct stat buf;
+    EXPECT_EQ(-1, stat(full_path.c_str(), &buf));
+    EXPECT_EQ(ENOENT, errno);
+
+    // And the new one does
+    string const new_path = local_file("new-name.txt");
+    EXPECT_EQ(0, stat(new_path.c_str(), &buf));
+    EXPECT_EQ(file_contents.size(), buf.st_size);
+
+    // And its has the expected contents
+    {
+        int fd = open(new_path.c_str(), O_RDONLY);
+        ASSERT_GT(fd, 0);
+        string contents(file_contents.size(), '\0');
+        EXPECT_EQ(file_contents.size(), read(fd, &contents[0], contents.size()));
+        EXPECT_EQ(0, close(fd));
+        EXPECT_EQ(file_contents, contents);
+    }
+}
+
+TEST_F(DavProviderTests, copy)
+{
+    string const full_path = local_file("foo.txt");
+    {
+        int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+        ASSERT_GT(fd, 0);
+        ASSERT_EQ(file_contents.size(), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
+        ASSERT_EQ(0, close(fd));
+    }
+
+    auto account = get_client();
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Item> item;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        item = watcher.result();
+    }
+
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(item->copy(root, "new-name.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        item = watcher.result();
+    }
+
+    EXPECT_EQ("new-name.txt", item->native_identity());
+    ASSERT_EQ(1, item->parent_ids().size());
+    EXPECT_EQ(".", item->parent_ids().at(0));
+    EXPECT_EQ("new-name.txt", item->name());
+    EXPECT_NE(0, item->etag().size());
+    EXPECT_EQ(ItemType::file, item->type());
+    EXPECT_EQ(file_contents.size(), dynamic_pointer_cast<File>(item)->size());
+
+    // The old file still exists
+    struct stat buf;
+    EXPECT_EQ(0, stat(full_path.c_str(), &buf));
+
+    // And the new one does too
+    string const new_path = local_file("new-name.txt");
+    EXPECT_EQ(0, stat(new_path.c_str(), &buf));
+    EXPECT_EQ(file_contents.size(), buf.st_size);
+
+    // And its has the expected contents
+    {
+        int fd = open(new_path.c_str(), O_RDONLY);
+        ASSERT_GT(fd, 0);
+        string contents(file_contents.size(), '\0');
+        EXPECT_EQ(file_contents.size(), read(fd, &contents[0], contents.size()));
+        EXPECT_EQ(0, close(fd));
+        EXPECT_EQ(file_contents, contents);
+    }
+}
+
 int main(int argc, char**argv)
 {
     QCoreApplication app(argc, argv);
