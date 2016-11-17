@@ -1,6 +1,7 @@
 #include "CreateFolderHandler.h"
 #include "RetrieveMetadataHandler.h"
 #include "item_id.h"
+#include "http_error.h"
 
 using namespace std;
 using namespace unity::storage::provider;
@@ -14,9 +15,9 @@ CreateFolderHandler::CreateFolderHandler(shared_ptr<DavProvider> const& provider
 {
     QUrl const base_url = provider->base_url(ctx);
     QNetworkRequest request(id_to_url(item_id_, base_url));
-    mkcol_.reset(provider->send_request(request, QByteArrayLiteral("MKCOL"),
+    reply_.reset(provider->send_request(request, QByteArrayLiteral("MKCOL"),
                                         nullptr, ctx));
-    connect(mkcol_.get(), &QNetworkReply::finished,
+    connect(reply_.get(), &QNetworkReply::finished,
             this, &CreateFolderHandler::onFinished);
 }
 
@@ -29,11 +30,12 @@ boost::future<Item> CreateFolderHandler::get_future()
 
 void CreateFolderHandler::onFinished()
 {
-    auto status = mkcol_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    auto status = reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
     if (status != 201)
     {
-        promise_.set_exception(RemoteCommsException("Error from MKCOL: " + to_string(status)));
+        promise_.set_exception(
+            translate_http_error(reply_.get(), QByteArray(), item_id_));
         deleteLater();
         return;
     }

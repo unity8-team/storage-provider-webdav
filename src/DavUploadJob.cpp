@@ -2,6 +2,7 @@
 #include "DavProvider.h"
 #include "RetrieveMetadataHandler.h"
 #include "item_id.h"
+#include "http_error.h"
 
 #include <unity/storage/provider/Exceptions.h>
 
@@ -57,23 +58,11 @@ DavUploadJob::DavUploadJob(shared_ptr<DavProvider> const& provider,
     reply_.reset(provider->send_request(
         request, QByteArrayLiteral("PUT"), &reader_, ctx));
     assert(reply_.get() != nullptr);
-    connect(reply_.get(), static_cast<void(QNetworkReply::*)(QNetworkReply::NetworkError)>(&QNetworkReply::error),
-            this, &DavUploadJob::onReplyError);
     connect(reply_.get(), &QNetworkReply::finished,
             this, &DavUploadJob::onReplyFinished);
 }
 
 DavUploadJob::~DavUploadJob() = default;
-
-void DavUploadJob::onReplyError(QNetworkReply::NetworkError code)
-{
-    if (promise_set_)
-    {
-        return;
-    }
-    promise_.set_exception(RemoteCommsException("Error from QNetworkReply: " + to_string(code)));
-    promise_set_ = true;
-}
 
 void DavUploadJob::onReplyFinished()
 {
@@ -85,7 +74,8 @@ void DavUploadJob::onReplyFinished()
     // Is this a success status code?
     if (status / 100 != 2)
     {
-        promise_.set_exception(RemoteCommsException("Error from PUT: " + to_string(status)));
+        promise_.set_exception(
+            translate_http_error(reply_.get(), QByteArray(), item_id_));
         promise_set_ = true;
         return;
     }

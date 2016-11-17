@@ -29,7 +29,6 @@ public:
     boost::future<unity::storage::provider::Item> finish() override;
 
 private Q_SLOTS:
-    void onReplyError(QNetworkReply::NetworkError code);
     void onReplyFinished();
 
 private:

@@ -1,9 +1,7 @@
 #include "DeleteHandler.h"
-
-#include <unity/storage/provider/Exceptions.h>
-
 #include "DavProvider.h"
 #include "item_id.h"
+#include "http_error.h"
 
 using namespace std;
 using namespace unity::storage::provider;
@@ -38,7 +36,8 @@ void DeleteHandler::onFinished()
     }
     else
     {
-        promise_.set_exception(RemoteCommsException("Error from DELETE: " + to_string(status)));
+        promise_.set_exception(
+            translate_http_error(reply_.get(), QByteArray(), item_id_));
     }
 
     deleteLater();

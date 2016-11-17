@@ -30,6 +30,6 @@ private:
     std::string const item_id_;
     unity::storage::provider::Context const context_;
 
-    std::unique_ptr<QNetworkReply> mkcol_;
+    std::unique_ptr<QNetworkReply> reply_;
     std::unique_ptr<RetrieveMetadataHandler> metadata_;
 };

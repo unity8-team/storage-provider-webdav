@@ -140,12 +140,23 @@ boost::exception_ptr translate_http_error(QNetworkReply *reply,
     case 410: // Gone
         return boost::copy_exception(NotExistsException(message, item_id));
 
+    case 405: // Method Not Allowed
+        // MKCOL on an existing resource results in a 405 error
+        if (reply->request().attribute(QNetworkRequest::CustomVerbAttribute) == "MKCOL")
+        {
+            return boost::copy_exception(ExistsException(message, item_id, "fixme"));
+        }
+        break;
+
     case 409: // Conflict
     case 412: // Precondition failed
         return boost::copy_exception(ConflictException(message));
 
     case 507: // Insufficient Storage
         return boost::copy_exception(QuotaException(message));
+
+    default:
+        break;
     }
     return boost::copy_exception(
         UnknownException("HTTP " + to_string(status) + ": " + message));

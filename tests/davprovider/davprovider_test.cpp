@@ -410,9 +410,9 @@ TEST_F(DavProviderTests, create_folder_overwrite_file)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ExistsException const& e)
         {
-            EXPECT_EQ("Error from MKCOL: 405", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", e.error_message());
         }
     }
 }
@@ -449,9 +449,9 @@ TEST_F(DavProviderTests, create_folder_overwrite_folder)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ExistsException const& e)
         {
-            EXPECT_EQ("Error from MKCOL: 405", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", e.error_message());
         }
     }
 }
@@ -565,9 +565,9 @@ TEST_F(DavProviderTests, create_file_over_existing_file)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ConflictException const& e)
         {
-            EXPECT_EQ("Error from QNetworkReply: 299", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-None-Match header was specified, but the ETag matched (or * was specified).", e.error_message());
         }
     }
 }
@@ -714,9 +714,9 @@ TEST_F(DavProviderTests, update_conflict)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ConflictException const& e)
         {
-            EXPECT_EQ("Error from QNetworkReply: 299", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-Match header was specified, but none of the specified the ETags matched.", e.error_message());
         }
     }
 }
@@ -766,7 +766,7 @@ TEST_F(DavProviderTests, upload_short_write)
         }
         catch (RemoteCommsException const& e)
         {
-            EXPECT_EQ("Error from QNetworkReply: 99", e.error_message());
+            EXPECT_EQ("Unknown error", e.error_message());
         }
     }
 }
@@ -1145,9 +1145,11 @@ TEST_F(DavProviderTests, delete_item_not_found)
             watcher.waitForFinished(); // to catch any errors
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (NotExistsException const& e)
         {
-            EXPECT_EQ("Error from DELETE: 404", e.error_message());
+            EXPECT_TRUE(e.error_message().startsWith(
+                            "Sabre\\DAV\\Exception\\NotFound: "))
+                << e.error_message().toStdString();
         }
     }
 }

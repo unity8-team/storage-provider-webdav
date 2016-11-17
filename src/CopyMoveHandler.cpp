@@ -1,6 +1,7 @@
 #include "CopyMoveHandler.h"
 #include "RetrieveMetadataHandler.h"
 #include "item_id.h"
+#include "http_error.h"
 
 using namespace std;
 using namespace unity::storage::provider;
@@ -43,7 +44,8 @@ void CopyMoveHandler::onFinished()
 
     if (status != 201 && status != 204)
     {
-        promise_.set_exception(RemoteCommsException("Error from request: " + to_string(status)));
+        promise_.set_exception(
+            translate_http_error(reply_.get(), QByteArray(), item_id_));
         deleteLater();
         return;
     }
