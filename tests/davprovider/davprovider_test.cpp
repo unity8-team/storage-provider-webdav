@@ -336,7 +336,8 @@ TEST_F(DavProviderTests, metadata_not_found)
         }
         catch (NotExistsException const& e)
         {
-            EXPECT_EQ("Not Found", e.error_message());
+            EXPECT_TRUE(e.error_message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
+                << e.error_message().toStdString();
         }
     }
 }

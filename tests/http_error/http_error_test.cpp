@@ -24,6 +24,7 @@ public:
         setHeader(QNetworkRequest::ContentLengthHeader, body.size());
         buffer_.setData(body);
         buffer_.open(QIODevice::ReadOnly);
+        open(QIODevice::ReadOnly);
     }
 
     void abort() override
@@ -57,7 +58,7 @@ private:
 
 TEST(HttpErrorTests, translate_http_error_404)
 {
-    FakeReply reply(404, "Not Found", "text/plain", "");
+    FakeReply reply(404, "Not Found", "text/plain", "File not found");
 
     boost::exception_ptr p = translate_http_error(&reply, QByteArray());
     try
@@ -67,7 +68,7 @@ TEST(HttpErrorTests, translate_http_error_404)
     }
     catch (NotExistsException const& e)
     {
-        EXPECT_EQ("Not Found", e.error_message());
+        EXPECT_EQ("File not found", e.error_message());
     }
 }
 
