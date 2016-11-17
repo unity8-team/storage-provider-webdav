@@ -1,5 +1,6 @@
 #include "PropFindHandler.h"
 #include "item_id.h"
+#include "http_error.h"
 
 #include <cassert>
 
@@ -36,10 +37,10 @@ PropFindHandler::PropFindHandler(DavProvider const& provider, string const& item
                                        &request_body_, ctx));
     assert(reply_.get() != nullptr);
 
-    connect(reply_.get(), static_cast<void(QNetworkReply::*)(QNetworkReply::NetworkError)>(&QNetworkReply::error),
-            this, &PropFindHandler::onError);
     connect(reply_.get(), &QIODevice::readyRead,
-            this, &PropFindHandler::onReadyRead);
+            this, &PropFindHandler::onReplyReadyRead);
+    connect(reply_.get(), &QNetworkReply::finished,
+            this, &PropFindHandler::onReplyFinished);
 }
 
 PropFindHandler::~PropFindHandler()
@@ -58,12 +59,17 @@ void PropFindHandler::abort()
 
 void PropFindHandler::reportError(StorageException const& error)
 {
+    reportError(boost::copy_exception(error));
+}
+
+void PropFindHandler::reportError(boost::exception_ptr const& ep)
+{
     if (finished_)
     {
         return;
     }
 
-    error_ = boost::copy_exception(error);
+    error_ = ep;
     finished_ = true;
     finish();
 }
@@ -79,28 +85,46 @@ void PropFindHandler::reportSuccess()
     finish();
 }
 
-void PropFindHandler::onError(QNetworkReply::NetworkError code)
+void PropFindHandler::onReplyReadyRead()
 {
-    reportError(RemoteCommsException("Error from QNetworkReply: " +
-                                     to_string(code)));
+    if (!seen_headers_)
+    {
+        seen_headers_ = true;
+        auto status = reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (status == 207)
+        {
+            disconnect(reply_.get(), &QIODevice::readyRead,
+                       this, &PropFindHandler::onReplyReadyRead);
+            parser_.reset(new MultiStatusParser(reply_->request().url(), reply_.get()));
+            connect(parser_.get(), &MultiStatusParser::response,
+                    this, &PropFindHandler::onParserResponse);
+            connect(parser_.get(), &MultiStatusParser::finished,
+                    this, &PropFindHandler::onParserFinished);
+        }
+        else
+        {
+            is_error_ = true;
+        }
+    }
+    if (is_error_)
+    {
+        if (error_body_.size() < MAX_ERROR_BODY_LENGTH)
+        {
+            error_body_.append(reply_->readAll());
+        }
+        else
+        {
+            reply_->close();
+        }
+    }
 }
 
-void PropFindHandler::onReadyRead()
+void PropFindHandler::onReplyFinished()
 {
-    disconnect(reply_.get(), &QIODevice::readyRead,
-               this, &PropFindHandler::onReadyRead);
-    auto status = reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-    if (status != 207)
+    if (!seen_headers_ || is_error_)
     {
-        reportError(RemoteCommsException("Expected 207 response, but got " + to_string(status)));
-        return;
+        reportError(translate_http_error(reply_.get(), error_body_));
     }
-    parser_.reset(new MultiStatusParser(reply_->request().url(), reply_.get()));
-    connect(parser_.get(), &MultiStatusParser::response,
-            this, &PropFindHandler::onParserResponse);
-    connect(parser_.get(), &MultiStatusParser::finished,
-            this, &PropFindHandler::onParserFinished);
 }
 
 void PropFindHandler::onParserResponse(QUrl const& href, vector<MultiStatusProperty> const& properties, int status)

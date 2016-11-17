@@ -302,6 +302,45 @@ TEST_F(DavProviderTests, metadata)
     EXPECT_EQ(ItemType::file, item->type());
 }
 
+TEST_F(DavProviderTests, metadata_not_found)
+{
+    auto account = get_client();
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Item> item;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        try
+        {
+            watcher.result();
+            FAIL();
+        }
+        catch (NotExistsException const& e)
+        {
+            EXPECT_EQ("Not Found", e.error_message());
+        }
+    }
+}
+
 TEST_F(DavProviderTests, create_folder)
 {
     auto account = get_client();

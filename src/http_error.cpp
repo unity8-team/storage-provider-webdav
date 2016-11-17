@@ -3,12 +3,16 @@
 #include <QNetworkReply>
 #include <unity/storage/provider/Exceptions.h>
 
+#include <cassert>
+
 using namespace std;
 using namespace unity::storage::provider;
 
 boost::exception_ptr translate_http_error(QNetworkReply *reply,
+                                          QByteArray const& body,
                                           string const& item_id)
 {
+    assert(reply->isFinished());
     auto status = reply->attribute(
         QNetworkRequest::HttpStatusCodeAttribute).toInt();
     auto reason = reply->attribute(

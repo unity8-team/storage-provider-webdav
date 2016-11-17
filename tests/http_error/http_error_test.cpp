@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <QBuffer>
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QNetworkReply>
 #include <unity/storage/provider/Exceptions.h>
@@ -58,7 +59,7 @@ TEST(HttpErrorTests, translate_http_error_404)
 {
     FakeReply reply(404, "Not Found", "text/plain", "");
 
-    boost::exception_ptr p = translate_http_error(&reply);
+    boost::exception_ptr p = translate_http_error(&reply, QByteArray());
     try
     {
         boost::rethrow_exception(p);
