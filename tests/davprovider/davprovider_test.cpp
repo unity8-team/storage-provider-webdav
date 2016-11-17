@@ -171,8 +171,7 @@ TEST_F(DavProviderTests, list)
     auto account = get_client();
     make_file("foo.txt");
     make_file("bar.txt");
-    //make_dir("folder");
-    make_file("folder");
+    make_dir("folder");
     make_file("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n");
 
     shared_ptr<Root> root;
@@ -217,16 +216,10 @@ TEST_F(DavProviderTests, list)
     EXPECT_EQ("bar.txt", items[1]->name());
     EXPECT_EQ(ItemType::file, items[1]->type());
 
-    // FIXME: SabreDAV doesn't provide an ETag for folders, which
-    // currently trips up storage-framework's client side metadata
-    // validation.
-
-    //EXPECT_EQ("folder/", items[2]->native_identity());
-    EXPECT_EQ("folder", items[2]->native_identity());
+    EXPECT_EQ("folder/", items[2]->native_identity());
     EXPECT_EQ(".", items[2]->parent_ids().at(0));
     EXPECT_EQ("folder", items[2]->name());
-    //EXPECT_EQ(ItemType::folder, items[2]->type());
-    EXPECT_EQ(ItemType::file, items[2]->type());
+    EXPECT_EQ(ItemType::folder, items[2]->type());
 
     EXPECT_EQ("foo.txt", items[3]->native_identity());
     EXPECT_EQ(".", items[3]->parent_ids().at(0));
@@ -326,11 +319,6 @@ TEST_F(DavProviderTests, create_folder)
         ASSERT_EQ(1, roots.size());
         root = roots[0];
     }
-
-    // FIXME: the test webdav server returns no ETag for folders, so
-    // the client throws away the create_folder() response.  We can
-    // reenable this when porting to storage-framework 0.2.
-    return;
 
     shared_ptr<Folder> folder;
     {
