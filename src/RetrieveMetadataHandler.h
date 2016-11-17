@@ -20,7 +20,6 @@ public:
     ~RetrieveMetadataHandler();
 
 private:
-    std::string const item_id_;
     Callback const callback_;
 
 protected:

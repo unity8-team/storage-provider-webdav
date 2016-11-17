@@ -7,7 +7,7 @@ using namespace unity::storage::provider;
 
 MetadataHandler::MetadataHandler(DavProvider const& provider,
                                  string const& item_id, Context const& ctx)
-    : PropFindHandler(provider, item_id, 0, ctx), item_id_(item_id)
+    : PropFindHandler(provider, item_id, 0, ctx)
 {
 }
 

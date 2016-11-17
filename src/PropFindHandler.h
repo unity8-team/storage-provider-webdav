@@ -49,6 +49,7 @@ private:
 protected:
     virtual void finish() = 0;
 
+    std::string const item_id_;
     unity::storage::provider::ItemList items_;
     boost::exception_ptr error_;
 };

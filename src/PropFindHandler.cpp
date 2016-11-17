@@ -23,9 +23,9 @@ R"(<?xml version="1.0" encoding="utf-8" ?>
 }
 
 PropFindHandler::PropFindHandler(DavProvider const& provider, string const& item_id, int depth, Context const& ctx)
-    : provider_(provider), base_url_(provider.base_url(ctx))
+    : provider_(provider), base_url_(provider.base_url(ctx)), item_id_(item_id)
 {
-    QNetworkRequest request(id_to_url(item_id, base_url_));
+    QNetworkRequest request(id_to_url(item_id_, base_url_));
     request.setRawHeader(QByteArrayLiteral("Depth"), QByteArray::number(depth));
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       QStringLiteral("application/xml; charset=\"utf-8\""));
@@ -123,7 +123,7 @@ void PropFindHandler::onReplyFinished()
 {
     if (!seen_headers_ || is_error_)
     {
-        reportError(translate_http_error(reply_.get(), error_body_));
+        reportError(translate_http_error(reply_.get(), error_body_, item_id_));
     }
 }
 

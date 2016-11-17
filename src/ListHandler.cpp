@@ -10,7 +10,7 @@ using namespace unity::storage::provider;
 
 ListHandler::ListHandler(DavProvider const& provider,
                          string const& parent_id, Context const& ctx)
-    : PropFindHandler(provider, parent_id, 1, ctx), parent_id_(parent_id)
+    : PropFindHandler(provider, parent_id, 1, ctx)
 {
 }
 
@@ -34,7 +34,7 @@ void ListHandler::finish()
     // itself, so remove it from the list.
     items_.erase(remove_if(items_.begin(), items_.end(),
                            [&](Item const& item) -> bool {
-                               return item.item_id == parent_id_;
+                               return item.item_id == item_id_;
                            }), items_.end());
 
     promise_.set_value(make_tuple(move(items_), string()));
