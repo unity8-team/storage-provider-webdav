@@ -9,7 +9,7 @@
 class MetadataHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    MetadataHandler(DavProvider const& provider,
+    MetadataHandler(std::shared_ptr<DavProvider> const& provider,
                     std::string const& item_id,
                     unity::storage::provider::Context const& ctx);
     ~MetadataHandler();

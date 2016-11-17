@@ -7,7 +7,7 @@
 using namespace std;
 using namespace unity::storage::provider;
 
-RetrieveMetadataHandler::RetrieveMetadataHandler(DavProvider const& provider,
+RetrieveMetadataHandler::RetrieveMetadataHandler(shared_ptr<DavProvider> const& provider,
                                                  string const& item_id,
                                                  Context const& ctx,
                                                  Callback callback)

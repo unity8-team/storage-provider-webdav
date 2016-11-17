@@ -16,7 +16,7 @@ const auto OBJECT_PATH = QStringLiteral("/provider");
 
 }
 
-ProviderEnvironment::ProviderEnvironment(unique_ptr<ProviderBase>&& provider,
+ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provider,
                                          OnlineAccounts::AccountId account_id,
                                          DBusEnvironment const& dbus_env)
 {
@@ -29,7 +29,7 @@ ProviderEnvironment::ProviderEnvironment(unique_ptr<ProviderBase>&& provider,
     account_manager_->waitForReady();
     OnlineAccounts::Account* account = account_manager_->account(account_id);
     assert(account != nullptr);
-    server_.reset(new testing::TestServer(move(provider), account,
+    server_.reset(new testing::TestServer(provider, account,
                                           *server_connection_,
                                           OBJECT_PATH.toStdString()));
 

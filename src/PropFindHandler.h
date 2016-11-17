@@ -13,7 +13,7 @@
 class PropFindHandler : public QObject {
     Q_OBJECT
 public:
-    PropFindHandler(DavProvider const& provider,
+    PropFindHandler(std::shared_ptr<DavProvider> const& provider,
                     std::string const& item_id, int depth,
                     unity::storage::provider::Context const& ctx);
     ~PropFindHandler();
@@ -39,7 +39,7 @@ private:
     bool finished_ = false;
     boost::promise<unity::storage::provider::ItemList> promise_;
 
-    DavProvider const& provider_;
+    std::shared_ptr<DavProvider> const provider_;
     QUrl base_url_;
     QBuffer request_body_;
     std::unique_ptr<QNetworkReply> reply_;

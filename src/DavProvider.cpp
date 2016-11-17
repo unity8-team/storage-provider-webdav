@@ -31,11 +31,16 @@ DavProvider::DavProvider()
 
 DavProvider::~DavProvider() = default;
 
+std::shared_ptr<DavProvider> DavProvider::shared_from_this()
+{
+    return static_pointer_cast<DavProvider>(ProviderBase::shared_from_this());
+}
+
 boost::future<ItemList> DavProvider::roots(
     vector<string> const& metadata_keys, Context const& ctx)
 {
     Q_UNUSED(metadata_keys);
-    auto handler = new RootsHandler(*this, ctx);
+    auto handler = new RootsHandler(shared_from_this(), ctx);
     return handler->get_future();
 }
 
@@ -48,7 +53,7 @@ boost::future<tuple<ItemList,string>> DavProvider::list(
     {
         throw InvalidArgumentException("Invalid paging token: " + page_token);
     }
-    auto handler = new ListHandler(*this, item_id, ctx);
+    auto handler = new ListHandler(shared_from_this(), item_id, ctx);
     return handler->get_future();
 }
 
@@ -58,7 +63,7 @@ boost::future<ItemList> DavProvider::lookup(
 {
     Q_UNUSED(metadata_keys);
     string item_id = make_child_id(parent_id, name);
-    auto handler = new LookupHandler(*this, item_id, ctx);
+    auto handler = new LookupHandler(shared_from_this(), item_id, ctx);
     return handler->get_future();
 }
 
@@ -67,7 +72,7 @@ boost::future<Item> DavProvider::metadata(
     Context const& ctx)
 {
     Q_UNUSED(metadata_keys);
-    auto handler = new MetadataHandler(*this, item_id, ctx);
+    auto handler = new MetadataHandler(shared_from_this(), item_id, ctx);
     return handler->get_future();
 }
 
@@ -76,7 +81,8 @@ boost::future<Item> DavProvider::create_folder(
     vector<string> const& metadata_keys, Context const& ctx)
 {
     Q_UNUSED(metadata_keys);
-    auto handler = new CreateFolderHandler(*this, parent_id, name, ctx);
+    auto handler = new CreateFolderHandler(
+        shared_from_this(), parent_id, name, ctx);
     return handler->get_future();
 }
 
@@ -89,7 +95,8 @@ boost::future<unique_ptr<UploadJob>> DavProvider::create_file(
     string item_id = make_child_id(parent_id, name);
     boost::promise<unique_ptr<UploadJob>> p;
     p.set_value(unique_ptr<UploadJob>(new DavUploadJob(
-        *this, item_id, size, content_type, allow_overwrite, string(), ctx)));
+        shared_from_this(), item_id, size, content_type, allow_overwrite,
+        string(), ctx)));
     return p.get_future();
 }
 
@@ -100,7 +107,7 @@ boost::future<unique_ptr<UploadJob>> DavProvider::update(
     Q_UNUSED(metadata_keys);
     boost::promise<unique_ptr<UploadJob>> p;
     p.set_value(unique_ptr<UploadJob>(new DavUploadJob(
-        *this, item_id, size, string(), true, old_etag, ctx)));
+        shared_from_this(), item_id, size, string(), true, old_etag, ctx)));
     return p.get_future();
 }
 
@@ -109,14 +116,14 @@ boost::future<unique_ptr<DownloadJob>> DavProvider::download(
 {
     boost::promise<unique_ptr<DownloadJob>> p;
     p.set_value(unique_ptr<DownloadJob>(new DavDownloadJob(
-        *this, item_id, match_etag, ctx)));
+        shared_from_this(), item_id, match_etag, ctx)));
     return p.get_future();
 }
 
 boost::future<void> DavProvider::delete_item(
     string const& item_id, Context const& ctx)
 {
-    auto handler = new DeleteHandler(*this, item_id, ctx);
+    auto handler = new DeleteHandler(shared_from_this(), item_id, ctx);
     return handler->get_future();
 }
 
@@ -125,8 +132,8 @@ boost::future<Item> DavProvider::move(
     vector<string> const& metadata_keys, Context const& ctx)
 {
     Q_UNUSED(metadata_keys);
-    auto handler = new CopyMoveHandler(*this, item_id, new_parent_id,
-                                       new_name, false, ctx);
+    auto handler = new CopyMoveHandler(
+        shared_from_this(), item_id, new_parent_id, new_name, false, ctx);
     return handler->get_future();
 }
 
@@ -135,8 +142,8 @@ boost::future<Item> DavProvider::copy(
     vector<string> const& metadata_keys, Context const& ctx)
 {
     Q_UNUSED(metadata_keys);
-    auto handler = new CopyMoveHandler(*this, item_id, new_parent_id,
-                                       new_name, true, ctx);
+    auto handler = new CopyMoveHandler(
+        shared_from_this(), item_id, new_parent_id, new_name, true, ctx);
     return handler->get_future();
 }
 

@@ -13,7 +13,7 @@ class RetrieveMetadataHandler;
 class CreateFolderHandler : public QObject {
     Q_OBJECT
 public:
-    CreateFolderHandler(DavProvider const& provider,
+    CreateFolderHandler(std::shared_ptr<DavProvider> const& provider,
                         std::string const& parent_id, std::string const& name,
                         unity::storage::provider::Context const& ctx);
     ~CreateFolderHandler();
@@ -26,7 +26,7 @@ private Q_SLOTS:
 private:
     boost::promise<unity::storage::provider::Item> promise_;
 
-    DavProvider const& provider_;
+    std::shared_ptr<DavProvider> const provider_;
     std::string const item_id_;
     unity::storage::provider::Context const context_;
 

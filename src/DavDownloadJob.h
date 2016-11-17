@@ -3,7 +3,6 @@
 #include <QLocalSocket>
 #include <QNetworkReply>
 #include <QObject>
-#include <QPointer>
 #include <QUrl>
 #include <unity/storage/provider/Exceptions.h>
 #include <unity/storage/provider/ProviderBase.h>
@@ -19,8 +18,8 @@ class DavDownloadJob : public QObject, public unity::storage::provider::Download
 {
     Q_OBJECT
 public:
-    DavDownloadJob(DavProvider const& provider, std::string const& item_id,
-                   std::string const& match_etag,
+    DavDownloadJob(std::shared_ptr<DavProvider> const& provider,
+                   std::string const& item_id, std::string const& match_etag,
                    unity::storage::provider::Context const& ctx);
     ~DavDownloadJob();
 
@@ -38,10 +37,10 @@ private:
     void maybe_send_chunk();
     void handle_error(unity::storage::provider::StorageException const& exc);
 
-    DavProvider const& provider_;
+    std::shared_ptr<DavProvider> const provider_;
     std::string const item_id_;
     QLocalSocket writer_;
-    QPointer<QNetworkReply> reply_;
+    std::unique_ptr<QNetworkReply> reply_;
 
     bool seen_header_ = false;
     bool error_ = false;

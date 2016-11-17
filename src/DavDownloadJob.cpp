@@ -27,14 +27,14 @@ constexpr int CHUNK_SIZE = 64 * 1024;
 
 }
 
-DavDownloadJob::DavDownloadJob(DavProvider const& provider,
+DavDownloadJob::DavDownloadJob(shared_ptr<DavProvider> const& provider,
                                string const& item_id,
                                string const& match_etag,
                                Context const& ctx)
     : QObject(), DownloadJob(make_download_id()), provider_(provider),
       item_id_(item_id)
 {
-    QUrl base_url = provider.base_url(ctx);
+    QUrl base_url = provider->base_url(ctx);
     QNetworkRequest request(id_to_url(item_id, base_url));
     if (!match_etag.empty())
     {
@@ -42,15 +42,15 @@ DavDownloadJob::DavDownloadJob(DavProvider const& provider,
                              QByteArray::fromStdString(match_etag));
     }
 
-    reply_ = provider.send_request(
-        request, QByteArrayLiteral("GET"), nullptr, ctx);
-    assert(reply_ != nullptr);
+    reply_.reset(provider->send_request(
+        request, QByteArrayLiteral("GET"), nullptr, ctx));
+    assert(reply_.get() != nullptr);
     reply_->setReadBufferSize(CHUNK_SIZE);
-    connect(reply_, &QNetworkReply::finished,
+    connect(reply_.get(), &QNetworkReply::finished,
             this, &DavDownloadJob::onReplyFinished);
-    connect(reply_, &QIODevice::readyRead,
+    connect(reply_.get(), &QIODevice::readyRead,
             this, &DavDownloadJob::onReplyReadyRead);
-    connect(reply_, &QIODevice::readChannelFinished,
+    connect(reply_.get(), &QIODevice::readChannelFinished,
             this, &DavDownloadJob::onReplyReadChannelFinished);
     writer_.setSocketDescriptor(
         dup(write_socket()), QLocalSocket::ConnectedState, QIODevice::WriteOnly);
@@ -58,13 +58,7 @@ DavDownloadJob::DavDownloadJob(DavProvider const& provider,
             this, &DavDownloadJob::onSocketBytesWritten);
 }
 
-DavDownloadJob::~DavDownloadJob()
-{
-    if (!reply_.isNull())
-    {
-        reply_->deleteLater();
-    }
-}
+DavDownloadJob::~DavDownloadJob() = default;
 
 void DavDownloadJob::onReplyFinished()
 {

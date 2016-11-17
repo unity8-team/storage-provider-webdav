@@ -12,7 +12,7 @@
 class ProviderEnvironment
 {
 public:
-    ProviderEnvironment(std::unique_ptr<unity::storage::provider::ProviderBase>&& provider,
+    ProviderEnvironment(std::shared_ptr<unity::storage::provider::ProviderBase> const& provider,
                         OnlineAccounts::AccountId account_id,
                         DBusEnvironment const& dbus_env);
     ~ProviderEnvironment();

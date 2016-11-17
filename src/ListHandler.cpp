@@ -8,7 +8,7 @@
 using namespace std;
 using namespace unity::storage::provider;
 
-ListHandler::ListHandler(DavProvider const& provider,
+ListHandler::ListHandler(std::shared_ptr<DavProvider> const& provider,
                          string const& parent_id, Context const& ctx)
     : PropFindHandler(provider, parent_id, 1, ctx)
 {

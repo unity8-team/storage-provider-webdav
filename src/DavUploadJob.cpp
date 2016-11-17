@@ -25,12 +25,12 @@ string make_upload_id()
 
 }
 
-DavUploadJob::DavUploadJob(DavProvider const& provider, string const& item_id,
-                           int64_t size, string const& content_type,
-                           bool allow_overwrite, string const& old_etag,
-                           Context const& ctx)
+DavUploadJob::DavUploadJob(shared_ptr<DavProvider> const& provider,
+                           string const& item_id, int64_t size,
+                           string const& content_type, bool allow_overwrite,
+                           string const& old_etag, Context const& ctx)
     : QObject(), UploadJob(make_upload_id()), provider_(provider),
-      item_id_(item_id), base_url_(provider.base_url(ctx)), size_(size),
+      item_id_(item_id), base_url_(provider->base_url(ctx)), size_(size),
       context_(ctx)
 {
     QNetworkRequest request(id_to_url(item_id, base_url_));
@@ -54,7 +54,7 @@ DavUploadJob::DavUploadJob(DavProvider const& provider, string const& item_id,
 
     reader_.setSocketDescriptor(
         dup(read_socket()), QLocalSocket::ConnectedState, QIODevice::ReadOnly);
-    reply_.reset(provider.send_request(
+    reply_.reset(provider->send_request(
         request, QByteArrayLiteral("PUT"), &reader_, ctx));
     assert(reply_.get() != nullptr);
     connect(reply_.get(), static_cast<void(QNetworkReply::*)(QNetworkReply::NetworkError)>(&QNetworkReply::error),

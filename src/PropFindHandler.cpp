@@ -22,8 +22,10 @@ R"(<?xml version="1.0" encoding="utf-8" ?>
 </D:propfind>)");
 }
 
-PropFindHandler::PropFindHandler(DavProvider const& provider, string const& item_id, int depth, Context const& ctx)
-    : provider_(provider), base_url_(provider.base_url(ctx)), item_id_(item_id)
+PropFindHandler::PropFindHandler(shared_ptr<DavProvider> const& provider,
+                                 string const& item_id, int depth,
+                                 Context const& ctx)
+    : provider_(provider), base_url_(provider->base_url(ctx)), item_id_(item_id)
 {
     QNetworkRequest request(id_to_url(item_id_, base_url_));
     request.setRawHeader(QByteArrayLiteral("Depth"), QByteArray::number(depth));
@@ -33,8 +35,8 @@ PropFindHandler::PropFindHandler(DavProvider const& provider, string const& item
     request_body_.setData(PROPFIND_BODY);
     request_body_.open(QIODevice::ReadOnly);
 
-    reply_.reset(provider.send_request(request, QByteArrayLiteral("PROPFIND"),
-                                       &request_body_, ctx));
+    reply_.reset(provider->send_request(request, QByteArrayLiteral("PROPFIND"),
+                                        &request_body_, ctx));
     assert(reply_.get() != nullptr);
 
     connect(reply_.get(), &QIODevice::readyRead,
@@ -136,7 +138,7 @@ void PropFindHandler::onParserResponse(QUrl const& href, vector<MultiStatusPrope
     }
     try
     {
-        Item item = provider_.make_item(href, base_url_, properties);
+        Item item = provider_->make_item(href, base_url_, properties);
         items_.emplace_back(move(item));
     }
     catch (StorageException const& error)

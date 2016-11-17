@@ -13,7 +13,7 @@ class RetrieveMetadataHandler;
 class CopyMoveHandler : public QObject {
     Q_OBJECT
 public:
-    CopyMoveHandler(DavProvider const& provider,
+    CopyMoveHandler(std::shared_ptr<DavProvider> const& provider,
                     std::string const& item_id,
                     std::string const& new_parent_id,
                     std::string const& new_name,
@@ -29,7 +29,7 @@ private Q_SLOTS:
 private:
     boost::promise<unity::storage::provider::Item> promise_;
 
-    DavProvider const& provider_;
+    std::shared_ptr<DavProvider> const provider_;
     std::string const item_id_;
     std::string const new_item_id_;
     unity::storage::provider::Context const context_;

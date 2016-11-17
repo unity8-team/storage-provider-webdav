@@ -9,7 +9,7 @@
 class LookupHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    LookupHandler(DavProvider const& provider,
+    LookupHandler(std::shared_ptr<DavProvider> const& provider,
                   std::string const& item_id,
                   unity::storage::provider::Context const& ctx);
     ~LookupHandler();

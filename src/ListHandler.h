@@ -10,7 +10,7 @@
 class ListHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    ListHandler(DavProvider const& provider,
+    ListHandler(std::shared_ptr<DavProvider> const& provider,
                 std::string const& parent_id,
                 unity::storage::provider::Context const& ctx);
     ~ListHandler();

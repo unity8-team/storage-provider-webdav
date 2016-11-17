@@ -5,7 +5,7 @@
 using namespace std;
 using namespace unity::storage::provider;
 
-LookupHandler::LookupHandler(DavProvider const& provider,
+LookupHandler::LookupHandler(std::shared_ptr<DavProvider> const& provider,
                              string const& item_id, Context const& ctx)
     : PropFindHandler(provider, item_id, 0, ctx)
 {

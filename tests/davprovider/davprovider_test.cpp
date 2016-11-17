@@ -95,7 +95,7 @@ protected:
 
         dav_env_.reset(new DavEnvironment(tmp_dir_->path()));
         provider_env_.reset(new ProviderEnvironment(
-                                unique_ptr<provider::ProviderBase>(new TestDavProvider(dav_env_->base_url())),
+                                make_shared<TestDavProvider>(dav_env_->base_url()),
                                 1, *dbus_env_));
     }
 
