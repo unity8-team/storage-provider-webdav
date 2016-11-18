@@ -1,8 +1,8 @@
 Source: storage-provider-webdav
 Section: net
 Priority: optional
-Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-Standards-Version: 3.9.6
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Standards-Version: 3.9.8
 Build-Depends: cmake,
                cmake-extras (>= 0.4),
                debhelper (>= 9),
