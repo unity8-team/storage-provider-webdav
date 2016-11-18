@@ -80,5 +80,5 @@ protected:
     std::unique_ptr<QNetworkAccessManager> const network_;
 
 private:
-    std::shared_ptr<DavProvider> shared_from_this();
+    inline std::shared_ptr<DavProvider> shared_from_this();
 };
