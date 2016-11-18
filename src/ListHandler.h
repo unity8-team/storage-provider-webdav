@@ -10,7 +10,7 @@
 class ListHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    ListHandler(DavProvider const& provider,
+    ListHandler(std::shared_ptr<DavProvider> const& provider,
                 std::string const& parent_id,
                 unity::storage::provider::Context const& ctx);
     ~ListHandler();
@@ -18,7 +18,6 @@ public:
     boost::future<std::tuple<unity::storage::provider::ItemList,std::string>> get_future();
 
 private:
-    std::string const parent_id_;
     boost::promise<std::tuple<unity::storage::provider::ItemList,std::string>> promise_;
 
 protected:

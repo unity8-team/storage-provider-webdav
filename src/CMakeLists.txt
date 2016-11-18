@@ -4,6 +4,7 @@ add_library(dav-provider-lib STATIC
   DavDownloadJob.cpp
   DavUploadJob.cpp
   MultiStatusParser.cpp
+  http_error.cpp
   item_id.cpp
   CopyMoveHandler.cpp
   CreateFolderHandler.cpp

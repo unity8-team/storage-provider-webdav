@@ -18,9 +18,10 @@ class DavUploadJob : public QObject, public unity::storage::provider::UploadJob
 {
     Q_OBJECT
 public:
-    DavUploadJob(DavProvider const& provider, std::string const& item_id,
-                 int64_t size, std::string const& content_type,
-                 bool allow_overwrite, std::string const& old_etag,
+    DavUploadJob(std::shared_ptr<DavProvider> const& provider,
+                 std::string const& item_id, int64_t size,
+                 std::string const& content_type, bool allow_overwrite,
+                 std::string const& old_etag,
                  unity::storage::provider::Context const& ctx);
     ~DavUploadJob();
 
@@ -28,11 +29,10 @@ public:
     boost::future<unity::storage::provider::Item> finish() override;
 
 private Q_SLOTS:
-    void onReplyError(QNetworkReply::NetworkError code);
     void onReplyFinished();
 
 private:
-    DavProvider const& provider_;
+    std::shared_ptr<DavProvider> const provider_;
     std::string const item_id_;
     QUrl const base_url_;
     int64_t const size_;

@@ -1,11 +1,12 @@
 #include "CopyMoveHandler.h"
 #include "RetrieveMetadataHandler.h"
 #include "item_id.h"
+#include "http_error.h"
 
 using namespace std;
 using namespace unity::storage::provider;
 
-CopyMoveHandler::CopyMoveHandler(DavProvider const& provider,
+CopyMoveHandler::CopyMoveHandler(shared_ptr<DavProvider> const& provider,
                                  string const& item_id,
                                  string const& new_parent_id,
                                  string const& new_name,
@@ -15,7 +16,7 @@ CopyMoveHandler::CopyMoveHandler(DavProvider const& provider,
       new_item_id_(make_child_id(new_parent_id, new_name, is_folder(item_id))),
       context_(ctx)
 {
-    QUrl const base_url = provider.base_url(ctx);
+    QUrl const base_url = provider->base_url(ctx);
     QNetworkRequest request(id_to_url(item_id_, base_url));
     request.setRawHeader(QByteArrayLiteral("Destination"),
                          id_to_url(new_item_id_, base_url).toEncoded());
@@ -23,7 +24,7 @@ CopyMoveHandler::CopyMoveHandler(DavProvider const& provider,
     request.setRawHeader(QByteArrayLiteral("Overwrite"),
                          QByteArrayLiteral("F"));
 
-    reply_.reset(provider.send_request(
+    reply_.reset(provider->send_request(
         request, copy ? QByteArrayLiteral("COPY") : QByteArrayLiteral("MOVE"),
         nullptr, ctx));
     connect(reply_.get(), &QNetworkReply::finished,
@@ -43,7 +44,8 @@ void CopyMoveHandler::onFinished()
 
     if (status != 201 && status != 204)
     {
-        promise_.set_exception(RemoteCommsException("Error from request: " + to_string(status)));
+        promise_.set_exception(
+            translate_http_error(reply_.get(), QByteArray(), item_id_));
         deleteLater();
         return;
     }

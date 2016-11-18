@@ -9,7 +9,7 @@
 class MetadataHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    MetadataHandler(DavProvider const& provider,
+    MetadataHandler(std::shared_ptr<DavProvider> const& provider,
                     std::string const& item_id,
                     unity::storage::provider::Context const& ctx);
     ~MetadataHandler();
@@ -17,7 +17,6 @@ public:
     boost::future<unity::storage::provider::Item> get_future();
 
 private:
-    std::string const item_id_;
     boost::promise<unity::storage::provider::Item> promise_;
 
 protected:

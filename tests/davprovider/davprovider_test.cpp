@@ -95,7 +95,7 @@ protected:
 
         dav_env_.reset(new DavEnvironment(tmp_dir_->path()));
         provider_env_.reset(new ProviderEnvironment(
-                                unique_ptr<provider::ProviderBase>(new TestDavProvider(dav_env_->base_url())),
+                                make_shared<TestDavProvider>(dav_env_->base_url()),
                                 1, *dbus_env_));
     }
 
@@ -171,8 +171,7 @@ TEST_F(DavProviderTests, list)
     auto account = get_client();
     make_file("foo.txt");
     make_file("bar.txt");
-    //make_dir("folder");
-    make_file("folder");
+    make_dir("folder");
     make_file("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n");
 
     shared_ptr<Root> root;
@@ -217,16 +216,10 @@ TEST_F(DavProviderTests, list)
     EXPECT_EQ("bar.txt", items[1]->name());
     EXPECT_EQ(ItemType::file, items[1]->type());
 
-    // FIXME: SabreDAV doesn't provide an ETag for folders, which
-    // currently trips up storage-framework's client side metadata
-    // validation.
-
-    //EXPECT_EQ("folder/", items[2]->native_identity());
-    EXPECT_EQ("folder", items[2]->native_identity());
+    EXPECT_EQ("folder/", items[2]->native_identity());
     EXPECT_EQ(".", items[2]->parent_ids().at(0));
     EXPECT_EQ("folder", items[2]->name());
-    //EXPECT_EQ(ItemType::folder, items[2]->type());
-    EXPECT_EQ(ItemType::file, items[2]->type());
+    EXPECT_EQ(ItemType::folder, items[2]->type());
 
     EXPECT_EQ("foo.txt", items[3]->native_identity());
     EXPECT_EQ(".", items[3]->parent_ids().at(0));
@@ -309,7 +302,7 @@ TEST_F(DavProviderTests, metadata)
     EXPECT_EQ(ItemType::file, item->type());
 }
 
-TEST_F(DavProviderTests, create_folder)
+TEST_F(DavProviderTests, metadata_not_found)
 {
     auto account = get_client();
 
@@ -327,10 +320,45 @@ TEST_F(DavProviderTests, create_folder)
         root = roots[0];
     }
 
-    // FIXME: the test webdav server returns no ETag for folders, so
-    // the client throws away the create_folder() response.  We can
-    // reenable this when porting to storage-framework 0.2.
-    return;
+    shared_ptr<Item> item;
+    {
+        QFutureWatcher<shared_ptr<Item>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->get("foo.txt"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        try
+        {
+            watcher.result();
+            FAIL();
+        }
+        catch (NotExistsException const& e)
+        {
+            EXPECT_TRUE(e.error_message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
+                << e.error_message().toStdString();
+        }
+    }
+}
+
+TEST_F(DavProviderTests, create_folder)
+{
+    auto account = get_client();
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
 
     shared_ptr<Folder> folder;
     {
@@ -382,9 +410,9 @@ TEST_F(DavProviderTests, create_folder_overwrite_file)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ExistsException const& e)
         {
-            EXPECT_EQ("Error from MKCOL: 405", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", e.error_message());
         }
     }
 }
@@ -421,9 +449,9 @@ TEST_F(DavProviderTests, create_folder_overwrite_folder)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ExistsException const& e)
         {
-            EXPECT_EQ("Error from MKCOL: 405", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", e.error_message());
         }
     }
 }
@@ -537,9 +565,9 @@ TEST_F(DavProviderTests, create_file_over_existing_file)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ConflictException const& e)
         {
-            EXPECT_EQ("Error from QNetworkReply: 299", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-None-Match header was specified, but the ETag matched (or * was specified).", e.error_message());
         }
     }
 }
@@ -686,9 +714,9 @@ TEST_F(DavProviderTests, update_conflict)
             watcher.result();
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (ConflictException const& e)
         {
-            EXPECT_EQ("Error from QNetworkReply: 299", e.error_message());
+            EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-Match header was specified, but none of the specified the ETags matched.", e.error_message());
         }
     }
 }
@@ -738,7 +766,7 @@ TEST_F(DavProviderTests, upload_short_write)
         }
         catch (RemoteCommsException const& e)
         {
-            EXPECT_EQ("Error from QNetworkReply: 99", e.error_message());
+            EXPECT_EQ("Unknown error", e.error_message());
         }
     }
 }
@@ -1017,9 +1045,10 @@ TEST_F(DavProviderTests, download_not_found)
             watcher.waitForFinished(); // to check for errors
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (NotExistsException const& e)
         {
-            EXPECT_EQ("Unexpected status code: 404", e.error_message());
+            EXPECT_TRUE(e.error_message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
+                << e.error_message().toStdString();
         }
     }
 }
@@ -1117,9 +1146,11 @@ TEST_F(DavProviderTests, delete_item_not_found)
             watcher.waitForFinished(); // to catch any errors
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (NotExistsException const& e)
         {
-            EXPECT_EQ("Error from DELETE: 404", e.error_message());
+            EXPECT_TRUE(e.error_message().startsWith(
+                            "Sabre\\DAV\\Exception\\NotFound: "))
+                << e.error_message().toStdString();
         }
     }
 }

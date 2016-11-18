@@ -12,7 +12,7 @@ class DavProvider;
 class DeleteHandler : public QObject {
     Q_OBJECT
 public:
-    DeleteHandler(DavProvider const& provider, std::string const& item_id,
+    DeleteHandler(std::shared_ptr<DavProvider> const& provider, std::string const& item_id,
                   unity::storage::provider::Context const& ctx);
     ~DeleteHandler();
 
@@ -24,7 +24,7 @@ private Q_SLOTS:
 private:
     boost::promise<void> promise_;
 
-    DavProvider const& provider_;
+    std::shared_ptr<DavProvider> const provider_;
     std::string const item_id_;
 
     std::unique_ptr<QNetworkReply> reply_;

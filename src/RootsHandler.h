@@ -9,7 +9,7 @@
 class RootsHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    RootsHandler(DavProvider const& provider,
+    RootsHandler(std::shared_ptr<DavProvider> const& provider,
                  unity::storage::provider::Context const& ctx);
     ~RootsHandler();
 

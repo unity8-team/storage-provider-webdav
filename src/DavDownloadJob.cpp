@@ -2,6 +2,7 @@
 #include "DavProvider.h"
 #include "RetrieveMetadataHandler.h"
 #include "item_id.h"
+#include "http_error.h"
 
 #include <unity/storage/provider/Exceptions.h>
 
@@ -27,14 +28,14 @@ constexpr int CHUNK_SIZE = 64 * 1024;
 
 }
 
-DavDownloadJob::DavDownloadJob(DavProvider const& provider,
+DavDownloadJob::DavDownloadJob(shared_ptr<DavProvider> const& provider,
                                string const& item_id,
                                string const& match_etag,
                                Context const& ctx)
     : QObject(), DownloadJob(make_download_id()), provider_(provider),
       item_id_(item_id)
 {
-    QUrl base_url = provider.base_url(ctx);
+    QUrl base_url = provider->base_url(ctx);
     QNetworkRequest request(id_to_url(item_id, base_url));
     if (!match_etag.empty())
     {
@@ -42,15 +43,15 @@ DavDownloadJob::DavDownloadJob(DavProvider const& provider,
                              QByteArray::fromStdString(match_etag));
     }
 
-    reply_ = provider.send_request(
-        request, QByteArrayLiteral("GET"), nullptr, ctx);
-    assert(reply_ != nullptr);
+    reply_.reset(provider->send_request(
+        request, QByteArrayLiteral("GET"), nullptr, ctx));
+    assert(reply_.get() != nullptr);
     reply_->setReadBufferSize(CHUNK_SIZE);
-    connect(reply_, &QNetworkReply::finished,
+    connect(reply_.get(), &QNetworkReply::finished,
             this, &DavDownloadJob::onReplyFinished);
-    connect(reply_, &QIODevice::readyRead,
+    connect(reply_.get(), &QIODevice::readyRead,
             this, &DavDownloadJob::onReplyReadyRead);
-    connect(reply_, &QIODevice::readChannelFinished,
+    connect(reply_.get(), &QIODevice::readChannelFinished,
             this, &DavDownloadJob::onReplyReadChannelFinished);
     writer_.setSocketDescriptor(
         dup(write_socket()), QLocalSocket::ConnectedState, QIODevice::WriteOnly);
@@ -58,50 +59,56 @@ DavDownloadJob::DavDownloadJob(DavProvider const& provider,
             this, &DavDownloadJob::onSocketBytesWritten);
 }
 
-DavDownloadJob::~DavDownloadJob()
-{
-    if (!reply_.isNull())
-    {
-        reply_->deleteLater();
-    }
-}
+DavDownloadJob::~DavDownloadJob() = default;
 
 void DavDownloadJob::onReplyFinished()
 {
-    // If we haven't seen HTTP response headers and are in an error
-    // state, report that.
-    if (!seen_header_ && reply_->error() != QNetworkReply::NoError)
+    if (!seen_header_ || is_error_)
     {
-        handle_error(RemoteCommsException("Error connecting to server: " +
-                                          reply_->errorString().toStdString()));
+        try
+        {
+            boost::rethrow_exception(
+                translate_http_error(reply_.get(), error_body_, item_id_));
+        }
+        catch (...)
+        {
+            handle_error(std::current_exception());
+        }
     }
 }
 
 void DavDownloadJob::onReplyReadyRead()
 {
-    if (error_)
-    {
-        return;
-    }
-
     if (!seen_header_)
     {
         seen_header_ = true;
         auto status = reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (status != 200)
         {
-            handle_error(RemoteCommsException("Unexpected status code: " +
-                                              to_string(status)));
-            return;
+            is_error_ = true;
         }
     }
 
-    maybe_send_chunk();
+    if (is_error_)
+    {
+        if (error_body_.size() < MAX_ERROR_BODY_LENGTH)
+        {
+            error_body_.append(reply_->readAll());
+        }
+        else
+        {
+            reply_->close();
+        }
+    }
+    else
+    {
+        maybe_send_chunk();
+    }
 }
 
 void DavDownloadJob::onReplyReadChannelFinished()
 {
-    if (error_)
+    if (is_error_)
     {
         return;
     }
@@ -112,7 +119,7 @@ void DavDownloadJob::onReplyReadChannelFinished()
 
 void DavDownloadJob::onSocketBytesWritten(int64_t bytes)
 {
-    if (error_)
+    if (is_error_)
     {
         return;
     }
@@ -146,7 +153,8 @@ void DavDownloadJob::maybe_send_chunk()
     int n_read = reply_->read(buffer, CHUNK_SIZE);
     if (n_read < 0)
     {
-        handle_error(RemoteCommsException("Failed to read from server"));
+        handle_error(RemoteCommsException("Failed to read from server: " +
+                                          reply_->errorString().toStdString()));
         return;
     }
     bytes_read_ += n_read;
@@ -154,17 +162,24 @@ void DavDownloadJob::maybe_send_chunk()
     int n_written = writer_.write(buffer, n_read);
     if (n_written < 0)
     {
-        handle_error(ResourceException("Error writing to socket", 0));
+        handle_error(ResourceException(
+                         "Error writing to socket: "
+                         + writer_.errorString().toStdString(), 0));
         return;
     }
 }
 
 void DavDownloadJob::handle_error(StorageException const& exc)
 {
-    error_ = true;
+    handle_error(std::make_exception_ptr(exc));
+}
+
+void DavDownloadJob::handle_error(std::exception_ptr ep)
+{
+    is_error_ = true;
     reply_->close();
     writer_.close();
-    report_error(std::make_exception_ptr(exc));
+    report_error(ep);
 }
 
 

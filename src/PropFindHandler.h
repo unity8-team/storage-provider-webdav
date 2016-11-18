@@ -13,7 +13,7 @@
 class PropFindHandler : public QObject {
     Q_OBJECT
 public:
-    PropFindHandler(DavProvider const& provider,
+    PropFindHandler(std::shared_ptr<DavProvider> const& provider,
                     std::string const& item_id, int depth,
                     unity::storage::provider::Context const& ctx);
     ~PropFindHandler();
@@ -22,8 +22,8 @@ public:
 
 private Q_SLOTS:
     // From QNetworkReply
-    void onError(QNetworkReply::NetworkError code);
-    void onReadyRead();
+    void onReplyReadyRead();
+    void onReplyFinished();
 
     // From MultiStatusParser
     void onParserResponse(QUrl const& href, std::vector<MultiStatusProperty> const& properties, int status);
@@ -31,20 +31,25 @@ private Q_SLOTS:
 
 private:
     void reportError(unity::storage::provider::StorageException const& error);
+    void reportError(boost::exception_ptr const& ep);
     void reportSuccess();
 
+    bool seen_headers_ = false;
+    bool is_error_ = false;
     bool finished_ = false;
     boost::promise<unity::storage::provider::ItemList> promise_;
 
-    DavProvider const& provider_;
+    std::shared_ptr<DavProvider> const provider_;
     QUrl base_url_;
     QBuffer request_body_;
     std::unique_ptr<QNetworkReply> reply_;
     std::unique_ptr<MultiStatusParser> parser_;
+    QByteArray error_body_;
 
 protected:
     virtual void finish() = 0;
 
+    std::string const item_id_;
     unity::storage::provider::ItemList items_;
     boost::exception_ptr error_;
 };

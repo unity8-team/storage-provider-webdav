@@ -5,7 +5,8 @@
 using namespace std;
 using namespace unity::storage::provider;
 
-RootsHandler::RootsHandler(DavProvider const& provider, Context const& ctx)
+RootsHandler::RootsHandler(shared_ptr<DavProvider> const& provider,
+                           Context const& ctx)
     : PropFindHandler(provider, ".", 0, ctx)
 {
 }
