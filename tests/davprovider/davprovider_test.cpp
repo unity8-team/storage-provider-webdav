@@ -1045,9 +1045,10 @@ TEST_F(DavProviderTests, download_not_found)
             watcher.waitForFinished(); // to check for errors
             FAIL();
         }
-        catch (RemoteCommsException const& e)
+        catch (NotExistsException const& e)
         {
-            EXPECT_EQ("Unexpected status code: 404", e.error_message());
+            EXPECT_TRUE(e.error_message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
+                << e.error_message().toStdString();
         }
     }
 }

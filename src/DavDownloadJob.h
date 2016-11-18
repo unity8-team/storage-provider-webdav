@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QLocalSocket>
 #include <QNetworkReply>
 #include <QObject>
@@ -36,6 +37,7 @@ private Q_SLOTS:
 private:
     void maybe_send_chunk();
     void handle_error(unity::storage::provider::StorageException const& exc);
+    void handle_error(std::exception_ptr ep);
 
     std::shared_ptr<DavProvider> const provider_;
     std::string const item_id_;
@@ -43,8 +45,10 @@ private:
     std::unique_ptr<QNetworkReply> reply_;
 
     bool seen_header_ = false;
-    bool error_ = false;
     bool read_channel_finished_ = false;
     int64_t bytes_read_ = 0;
     int64_t bytes_written_ = 0;
+
+    bool is_error_ = false;
+    QByteArray error_body_;
 };
