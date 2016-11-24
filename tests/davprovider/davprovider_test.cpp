@@ -396,6 +396,42 @@ TEST_F(DavProviderTests, create_folder)
     EXPECT_EQ(ItemType::folder, folder->type());
 }
 
+TEST_F(DavProviderTests, create_folder_reserved_chars)
+{
+    auto account = get_client();
+
+    shared_ptr<Root> root;
+    {
+        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(account->roots());
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        auto roots = watcher.result();
+        ASSERT_EQ(1, roots.size());
+        root = roots[0];
+    }
+
+    shared_ptr<Folder> folder;
+    {
+        QFutureWatcher<shared_ptr<Folder>> watcher;
+        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+        watcher.setFuture(root->create_folder("14:19"));
+        if (spy.count() == 0)
+        {
+            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+        }
+        folder = watcher.result();
+    }
+
+    EXPECT_EQ("14:19/", folder->native_identity());
+    EXPECT_EQ(".", folder->parent_ids().at(0));
+    EXPECT_EQ("14:19", folder->name());
+    EXPECT_EQ(ItemType::folder, folder->type());
+}
+
 TEST_F(DavProviderTests, create_folder_overwrite_file)
 {
     auto account = get_client();

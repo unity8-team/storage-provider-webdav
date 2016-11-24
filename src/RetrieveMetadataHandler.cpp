@@ -44,10 +44,6 @@ void RetrieveMetadataHandler::finish()
     {
         ex = boost::copy_exception(RemoteCommsException("Unexpectedly received " + to_string(items_.size()) + " items from PROPFIND request"));
     }
-    else if (items_[0].item_id != item_id_)
-    {
-        ex = boost::copy_exception(RemoteCommsException("PROPFIND request returned data about the wrong item"));
-    }
     else
     {
         item = items_[0];
