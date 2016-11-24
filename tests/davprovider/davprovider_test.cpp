@@ -218,7 +218,7 @@ TEST_F(DavProviderTests, list)
         auto res = watcher.result();
         items.assign(res.begin(), res.end());
     }
-    ASSERT_EQ(4, items.size());
+    ASSERT_EQ(4u, items.size());
     sort(items.begin(), items.end(),
          [](shared_ptr<Item> const& a, shared_ptr<Item> const& b) -> bool {
              return a->native_identity() < b->native_identity();
@@ -276,7 +276,7 @@ TEST_F(DavProviderTests, lookup)
         auto res = watcher.result();
         items.assign(res.begin(), res.end());
     }
-    ASSERT_EQ(1, items.size());
+    ASSERT_EQ(1u, items.size());
     EXPECT_EQ("foo.txt", items[0]->native_identity());
     EXPECT_EQ(".", items[0]->parent_ids().at(0));
     EXPECT_EQ("foo.txt", items[0]->name());
@@ -531,12 +531,12 @@ TEST_F(DavProviderTests, create_file)
     EXPECT_EQ("filename.txt", file->name());
     EXPECT_NE(0, file->etag().size());
     EXPECT_EQ(ItemType::file, file->type());
-    EXPECT_EQ(file_contents.size() * segments, file->size());
+    EXPECT_EQ(int64_t(file_contents.size() * segments), file->size());
 
     string full_path = local_file("filename.txt");
     struct stat buf;
     ASSERT_EQ(0, stat(full_path.c_str(), &buf));
-    EXPECT_EQ(file_contents.size() * segments, buf.st_size);
+    EXPECT_EQ(off_t(file_contents.size() * segments), buf.st_size);
 }
 
 TEST_F(DavProviderTests, create_file_over_existing_file)
@@ -667,7 +667,7 @@ TEST_F(DavProviderTests, update)
     file = watcher.result();
 
     EXPECT_NE(old_etag, file->etag());
-    EXPECT_EQ(file_contents.size() * segments, file->size());
+    EXPECT_EQ(int64_t(file_contents.size() * segments), file->size());
 }
 
 TEST_F(DavProviderTests, update_conflict)
@@ -845,7 +845,7 @@ TEST_F(DavProviderTests, download)
     {
         int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
         ASSERT_GT(fd, 0);
-        ASSERT_EQ(large_contents.size(), write(fd, &large_contents[0], large_contents.size())) << strerror(errno);
+        ASSERT_EQ(ssize_t(large_contents.size()), write(fd, &large_contents[0], large_contents.size())) << strerror(errno);
         ASSERT_EQ(0, close(fd));
     }
 
@@ -915,7 +915,7 @@ TEST_F(DavProviderTests, download)
         watcher.waitForFinished(); // to check for errors
     }
 
-    EXPECT_EQ(large_contents.size(), n_read);
+    EXPECT_EQ(int64_t(large_contents.size()), n_read);
 }
 
 TEST_F(DavProviderTests, download_short_read)
@@ -927,7 +927,7 @@ TEST_F(DavProviderTests, download_short_read)
         ASSERT_GT(fd, 0);
         for (int i = 0; i < segments; i++)
         {
-            ASSERT_EQ(file_contents.size(), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
+            ASSERT_EQ(ssize_t(file_contents.size()), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
         }
         ASSERT_EQ(0, close(fd));
     }
@@ -1179,7 +1179,7 @@ TEST_F(DavProviderTests, move)
     {
         int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
         ASSERT_GT(fd, 0);
-        ASSERT_EQ(file_contents.size(), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
+        ASSERT_EQ(ssize_t(file_contents.size()), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
         ASSERT_EQ(0, close(fd));
     }
 
@@ -1227,7 +1227,7 @@ TEST_F(DavProviderTests, move)
     EXPECT_EQ("new-name.txt", item->name());
     EXPECT_NE(0, item->etag().size());
     EXPECT_EQ(ItemType::file, item->type());
-    EXPECT_EQ(file_contents.size(), dynamic_pointer_cast<File>(item)->size());
+    EXPECT_EQ(int64_t(file_contents.size()), dynamic_pointer_cast<File>(item)->size());
 
     // The old file no longer exists
     struct stat buf;
@@ -1237,14 +1237,14 @@ TEST_F(DavProviderTests, move)
     // And the new one does
     string const new_path = local_file("new-name.txt");
     EXPECT_EQ(0, stat(new_path.c_str(), &buf));
-    EXPECT_EQ(file_contents.size(), buf.st_size);
+    EXPECT_EQ(off_t(file_contents.size()), buf.st_size);
 
     // And its has the expected contents
     {
         int fd = open(new_path.c_str(), O_RDONLY);
         ASSERT_GT(fd, 0);
         string contents(file_contents.size(), '\0');
-        EXPECT_EQ(file_contents.size(), read(fd, &contents[0], contents.size()));
+        EXPECT_EQ(ssize_t(file_contents.size()), read(fd, &contents[0], contents.size()));
         EXPECT_EQ(0, close(fd));
         EXPECT_EQ(file_contents, contents);
     }
@@ -1256,7 +1256,7 @@ TEST_F(DavProviderTests, copy)
     {
         int fd = open(full_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
         ASSERT_GT(fd, 0);
-        ASSERT_EQ(file_contents.size(), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
+        ASSERT_EQ(ssize_t(file_contents.size()), write(fd, &file_contents[0], file_contents.size())) << strerror(errno);
         ASSERT_EQ(0, close(fd));
     }
 
@@ -1304,7 +1304,7 @@ TEST_F(DavProviderTests, copy)
     EXPECT_EQ("new-name.txt", item->name());
     EXPECT_NE(0, item->etag().size());
     EXPECT_EQ(ItemType::file, item->type());
-    EXPECT_EQ(file_contents.size(), dynamic_pointer_cast<File>(item)->size());
+    EXPECT_EQ(int64_t(file_contents.size()), dynamic_pointer_cast<File>(item)->size());
 
     // The old file still exists
     struct stat buf;
@@ -1313,14 +1313,14 @@ TEST_F(DavProviderTests, copy)
     // And the new one does too
     string const new_path = local_file("new-name.txt");
     EXPECT_EQ(0, stat(new_path.c_str(), &buf));
-    EXPECT_EQ(file_contents.size(), buf.st_size);
+    EXPECT_EQ(off_t(file_contents.size()), buf.st_size);
 
     // And its has the expected contents
     {
         int fd = open(new_path.c_str(), O_RDONLY);
         ASSERT_GT(fd, 0);
         string contents(file_contents.size(), '\0');
-        EXPECT_EQ(file_contents.size(), read(fd, &contents[0], contents.size()));
+        EXPECT_EQ(ssize_t(file_contents.size()), read(fd, &contents[0], contents.size()));
         EXPECT_EQ(0, close(fd));
         EXPECT_EQ(file_contents, contents);
     }
