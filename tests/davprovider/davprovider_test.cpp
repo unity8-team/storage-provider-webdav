@@ -22,20 +22,21 @@
 #include <utils/ProviderEnvironment.h>
 #include <testsetup.h>
 
+#include <gtest/gtest.h>
 #include <QCoreApplication>
-#include <QFutureWatcher>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTimer>
-#include <unity/storage/qt/client/Account.h>
-#include <unity/storage/qt/client/Downloader.h>
-#include <unity/storage/qt/client/Exceptions.h>
-#include <unity/storage/qt/client/Root.h>
-#include <unity/storage/qt/client/Uploader.h>
-
-#include <gtest/gtest.h>
+#include <unity/storage/qt/Account.h>
+#include <unity/storage/qt/Downloader.h>
+#include <unity/storage/qt/Item.h>
+#include <unity/storage/qt/ItemJob.h>
+#include <unity/storage/qt/ItemListJob.h>
+#include <unity/storage/qt/StorageError.h>
+#include <unity/storage/qt/Uploader.h>
+#include <unity/storage/qt/VoidJob.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -44,9 +45,7 @@
 #include <algorithm>
 
 using namespace std;
-using namespace unity::storage::qt::client;
-using unity::storage::ConflictPolicy;
-using unity::storage::ItemType;
+using namespace unity::storage::qt;
 namespace provider = unity::storage::provider;
 
 void PrintTo(QString const& str, std::ostream* os)
@@ -125,7 +124,7 @@ protected:
         dbus_env_.reset();
     }
 
-    shared_ptr<Account> get_client() const
+    Account get_client() const
     {
         return provider_env_->get_client();
     }
@@ -162,26 +161,74 @@ private:
     std::unique_ptr<ProviderEnvironment> provider_env_;
 };
 
+namespace
+{
+
+template <typename Job>
+void wait_for(Job* job)
+{
+    QSignalSpy spy(job, &Job::statusChanged);
+    while (job->status() == Job::Loading)
+    {
+        if (!spy.wait(SIGNAL_WAIT_TIME))
+        {
+            throw runtime_error("Wait for statusChanged signal timed out");
+        }
+    }
+}
+
+QList<Item> get_items(ItemListJob *job)
+{
+    QList<Item> items;
+    auto connection = QObject::connect(
+        job, &ItemListJob::itemsReady,
+        [&](QList<Item> const& new_items)
+        {
+            items.append(new_items);
+        });
+    try
+    {
+        wait_for(job);
+    }
+    catch (...)
+    {
+        QObject::disconnect(connection);
+        throw;
+    }
+    QObject::disconnect(connection);
+    return items;
+}
+
+Item get_root(Account const& account)
+{
+    unique_ptr<ItemListJob> job(account.roots());
+    QList<Item> roots = get_items(job.get());
+    if (job->status() != ItemListJob::Finished)
+    {
+        throw runtime_error("Account.roots(): " +
+                            job->error().errorString().toStdString());
+    }
+    return roots.at(0);
+}
+
+}
+
 TEST_F(DavProviderTests, roots)
 {
     auto account = get_client();
 
-    QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-    QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-    watcher.setFuture(account->roots());
-    if (spy.count() == 0)
-    {
-        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-    }
+    unique_ptr<ItemListJob> job(account.roots());
+    QList<Item> roots = get_items(job.get());
+    ASSERT_EQ(ItemListJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    auto roots = watcher.result();
     ASSERT_EQ(1, roots.size());
     auto item = roots[0];
-    EXPECT_EQ(".", item->native_identity());
-    EXPECT_EQ("Root", item->name());
-    EXPECT_EQ(ItemType::root, item->type());
-    EXPECT_TRUE(item->parent_ids().isEmpty());
-    EXPECT_TRUE(item->last_modified_time().isValid());
+    EXPECT_EQ(".", item.itemId());
+    EXPECT_EQ("Root", item.name());
+    EXPECT_EQ(Item::Root, item.type());
+    EXPECT_TRUE(item.parentIds().isEmpty());
+    EXPECT_TRUE(item.lastModifiedTime().isValid());
 }
 
 TEST_F(DavProviderTests, list)
@@ -192,57 +239,38 @@ TEST_F(DavProviderTests, list)
     make_dir("folder");
     make_file("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n");
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
 
-    vector<shared_ptr<Item>> items;
-    {
-        QFutureWatcher<QVector<shared_ptr<Item>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->list());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto res = watcher.result();
-        items.assign(res.begin(), res.end());
-    }
-    ASSERT_EQ(4u, items.size());
+    unique_ptr<ItemListJob> job(root.list());
+    QList<Item> items = get_items(job.get());
+    ASSERT_EQ(ItemListJob::Finished, job->status())
+        << job->error().errorString().toStdString();
+
+    ASSERT_EQ(4, items.size());
     sort(items.begin(), items.end(),
-         [](shared_ptr<Item> const& a, shared_ptr<Item> const& b) -> bool {
-             return a->native_identity() < b->native_identity();
+         [](Item const& a, Item const& b) -> bool {
+             return a.itemId() < b.itemId();
          });
 
-    EXPECT_EQ("I%C3%B1t%C3%ABrn%C3%A2ti%C3%B4n%C3%A0liz%C3%A6ti%C3%B8n", items[0]->native_identity());
-    EXPECT_EQ(".", items[0]->parent_ids().at(0));
-    EXPECT_EQ("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n", items[0]->name());
-    EXPECT_EQ(ItemType::file, items[0]->type());
+    EXPECT_EQ("I%C3%B1t%C3%ABrn%C3%A2ti%C3%B4n%C3%A0liz%C3%A6ti%C3%B8n", items[0].itemId());
+    EXPECT_EQ(".", items[0].parentIds().at(0));
+    EXPECT_EQ("I\u00F1t\u00EBrn\u00E2ti\u00F4n\u00E0liz\u00E6ti\u00F8n", items[0].name());
+    EXPECT_EQ(Item::File, items[0].type());
 
-    EXPECT_EQ("bar.txt", items[1]->native_identity());
-    EXPECT_EQ(".", items[1]->parent_ids().at(0));
-    EXPECT_EQ("bar.txt", items[1]->name());
-    EXPECT_EQ(ItemType::file, items[1]->type());
+    EXPECT_EQ("bar.txt", items[1].itemId());
+    EXPECT_EQ(".", items[1].parentIds().at(0));
+    EXPECT_EQ("bar.txt", items[1].name());
+    EXPECT_EQ(Item::File, items[1].type());
 
-    EXPECT_EQ("folder/", items[2]->native_identity());
-    EXPECT_EQ(".", items[2]->parent_ids().at(0));
-    EXPECT_EQ("folder", items[2]->name());
-    EXPECT_EQ(ItemType::folder, items[2]->type());
+    EXPECT_EQ("folder/", items[2].itemId());
+    EXPECT_EQ(".", items[2].parentIds().at(0));
+    EXPECT_EQ("folder", items[2].name());
+    EXPECT_EQ(Item::Folder, items[2].type());
 
-    EXPECT_EQ("foo.txt", items[3]->native_identity());
-    EXPECT_EQ(".", items[3]->parent_ids().at(0));
-    EXPECT_EQ("foo.txt", items[3]->name());
-    EXPECT_EQ(ItemType::file, items[3]->type());
+    EXPECT_EQ("foo.txt", items[3].itemId());
+    EXPECT_EQ(".", items[3].parentIds().at(0));
+    EXPECT_EQ("foo.txt", items[3].name());
+    EXPECT_EQ(Item::File, items[3].type());
 }
 
 TEST_F(DavProviderTests, lookup)
@@ -250,37 +278,18 @@ TEST_F(DavProviderTests, lookup)
     auto account = get_client();
     make_file("foo.txt");
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
 
-    vector<shared_ptr<Item>> items;
-    {
-        QFutureWatcher<QVector<shared_ptr<Item>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->lookup("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto res = watcher.result();
-        items.assign(res.begin(), res.end());
-    }
-    ASSERT_EQ(1u, items.size());
-    EXPECT_EQ("foo.txt", items[0]->native_identity());
-    EXPECT_EQ(".", items[0]->parent_ids().at(0));
-    EXPECT_EQ("foo.txt", items[0]->name());
-    EXPECT_EQ(ItemType::file, items[0]->type());
+    unique_ptr<ItemListJob> job(root.lookup("foo.txt"));
+    QList<Item> items = get_items(job.get());
+    ASSERT_EQ(ItemListJob::Finished, job->status())
+        << job->error().errorString().toStdString();
+
+    ASSERT_EQ(1, items.size());
+    EXPECT_EQ("foo.txt", items[0].itemId());
+    EXPECT_EQ(".", items[0].parentIds().at(0));
+    EXPECT_EQ("foo.txt", items[0].name());
+    EXPECT_EQ(Item::File, items[0].type());
 }
 
 TEST_F(DavProviderTests, metadata)
@@ -288,148 +297,64 @@ TEST_F(DavProviderTests, metadata)
     auto account = get_client();
     make_file("foo.txt");
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<Item> item;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        item = watcher.result();
-    }
-
-    EXPECT_EQ("foo.txt", item->native_identity());
-    EXPECT_EQ(".", item->parent_ids().at(0));
-    EXPECT_EQ("foo.txt", item->name());
-    EXPECT_EQ(ItemType::file, item->type());
+    Item item = job->item();
+    EXPECT_EQ("foo.txt", item.itemId());
+    EXPECT_EQ(".", item.parentIds().at(0));
+    EXPECT_EQ("foo.txt", item.name());
+    EXPECT_EQ(Item::File, item.type());
 }
 
 TEST_F(DavProviderTests, metadata_not_found)
 {
     auto account = get_client();
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Error, job->status());
 
-    shared_ptr<Item> item;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        try
-        {
-            watcher.result();
-            FAIL();
-        }
-        catch (NotExistsException const& e)
-        {
-            EXPECT_TRUE(e.error_message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
-                << e.error_message().toStdString();
-        }
-    }
+    auto error = job->error();
+    EXPECT_EQ(StorageError::NotExists, error.type());
+    EXPECT_TRUE(error.message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
+        << error.message().toStdString();
 }
 
 TEST_F(DavProviderTests, create_folder)
 {
     auto account = get_client();
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
+    unique_ptr<ItemJob> job(root.createFolder("folder"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<Folder> folder;
-    {
-        QFutureWatcher<shared_ptr<Folder>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_folder("folder"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        folder = watcher.result();
-    }
-
-    EXPECT_EQ("folder/", folder->native_identity());
-    EXPECT_EQ(".", folder->parent_ids().at(0));
-    EXPECT_EQ("folder", folder->name());
-    EXPECT_EQ(ItemType::folder, folder->type());
+    Item folder = job->item();
+    EXPECT_EQ("folder/", folder.itemId());
+    EXPECT_EQ(".", folder.parentIds().at(0));
+    EXPECT_EQ("folder", folder.name());
+    EXPECT_EQ(Item::Folder, folder.type());
 }
 
 TEST_F(DavProviderTests, create_folder_reserved_chars)
 {
     auto account = get_client();
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
+    unique_ptr<ItemJob> job(root.createFolder("14:19"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<Folder> folder;
-    {
-        QFutureWatcher<shared_ptr<Folder>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_folder("14:19"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        folder = watcher.result();
-    }
-
-    EXPECT_EQ("14:19/", folder->native_identity());
-    EXPECT_EQ(".", folder->parent_ids().at(0));
-    EXPECT_EQ("14:19", folder->name());
-    EXPECT_EQ(ItemType::folder, folder->type());
+    Item folder = job->item();
+    EXPECT_EQ("14:19/", folder.itemId());
+    EXPECT_EQ(".", folder.parentIds().at(0));
+    EXPECT_EQ("14:19", folder.name());
+    EXPECT_EQ(Item::Folder, folder.type());
 }
 
 TEST_F(DavProviderTests, create_folder_overwrite_file)
@@ -437,38 +362,14 @@ TEST_F(DavProviderTests, create_folder_overwrite_file)
     auto account = get_client();
     make_file("folder");
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
+    unique_ptr<ItemJob> job(root.createFolder("folder"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Error, job->status());
 
-    {
-        QFutureWatcher<shared_ptr<Folder>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_folder("folder"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        try
-        {
-            watcher.result();
-            FAIL();
-        }
-        catch (ExistsException const& e)
-        {
-            EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", e.error_message());
-        }
-    }
+    auto error = job->error();
+    EXPECT_EQ(StorageError::Exists, error.type());
+    EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", error.message());
 }
 
 TEST_F(DavProviderTests, create_folder_overwrite_folder)
@@ -476,38 +377,14 @@ TEST_F(DavProviderTests, create_folder_overwrite_folder)
     auto account = get_client();
     ASSERT_EQ(0, mkdir(local_file("folder").c_str(), 0755));
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
+    unique_ptr<ItemJob> job(root.createFolder("folder"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Error, job->status());
 
-    {
-        QFutureWatcher<shared_ptr<Folder>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_folder("folder"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        try
-        {
-            watcher.result();
-            FAIL();
-        }
-        catch (ExistsException const& e)
-        {
-            EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", e.error_message());
-        }
-    }
+    auto error = job->error();
+    EXPECT_EQ(StorageError::Exists, error.type());
+    EXPECT_EQ("Sabre\\DAV\\Exception\\MethodNotAllowed: The resource you tried to create already exists", error.message());
 }
 
 TEST_F(DavProviderTests, create_file)
@@ -515,59 +392,43 @@ TEST_F(DavProviderTests, create_file)
     int const segments = 50;
 
     auto account = get_client();
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
 
-    shared_ptr<Uploader> uploader;
-    {
-        QFutureWatcher<shared_ptr<Uploader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_file("filename.txt", file_contents.size() * segments));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        uploader = watcher.result();
-    }
+    unique_ptr<Uploader> uploader(
+        root.createFile("filename.txt", Item::ErrorIfConflict,
+                        file_contents.size() * segments, "text/plain"));
 
-    auto socket = uploader->socket();
     int count = 0;
     QTimer timer;
     timer.setSingleShot(false);
     timer.setInterval(10);
-    QFutureWatcher<shared_ptr<File>> watcher;
     QObject::connect(&timer, &QTimer::timeout, [&] {
-            socket->write(&file_contents[0], file_contents.size());
+            uploader->write(&file_contents[0], file_contents.size());
             count++;
             if (count == segments)
             {
-                watcher.setFuture(uploader->finish_upload());
+                uploader->close();
             }
         });
 
-    QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+    QSignalSpy spy(uploader.get(), &Uploader::statusChanged);
     timer.start();
-    ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-    auto file = watcher.result();
+    while (uploader->status() == Uploader::Loading ||
+           uploader->status() == Uploader::Ready)
+    {
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
+    ASSERT_EQ(Uploader::Finished, uploader->status())
+        << uploader->error().errorString().toStdString();
 
-    EXPECT_EQ("filename.txt", file->native_identity());
-    ASSERT_EQ(1, file->parent_ids().size());
-    EXPECT_EQ(".", file->parent_ids().at(0));
-    EXPECT_EQ("filename.txt", file->name());
-    EXPECT_NE(0, file->etag().size());
-    EXPECT_EQ(ItemType::file, file->type());
-    EXPECT_EQ(int64_t(file_contents.size() * segments), file->size());
+    auto file = uploader->item();
+    EXPECT_EQ("filename.txt", file.itemId());
+    ASSERT_EQ(1, file.parentIds().size());
+    EXPECT_EQ(".", file.parentIds().at(0));
+    EXPECT_EQ("filename.txt", file.name());
+    EXPECT_NE(0, file.etag().size());
+    EXPECT_EQ(Item::File, file.type());
+    EXPECT_EQ(int64_t(file_contents.size() * segments), file.sizeInBytes());
 
     string full_path = local_file("filename.txt");
     struct stat buf;
@@ -580,58 +441,49 @@ TEST_F(DavProviderTests, create_file_over_existing_file)
     auto account = get_client();
     make_file("foo.txt");
 
-    shared_ptr<Root> root;
+    Item root = get_root(account);
+    unique_ptr<Uploader> uploader(
+        root.createFile("foo.txt", Item::ErrorIfConflict, 0, "text/plain"));
+    QSignalSpy spy(uploader.get(), &Uploader::statusChanged);
+    while (uploader->status() == Uploader::Loading)
     {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
 
-    shared_ptr<Uploader> uploader;
+    uploader->close();
+    while (uploader->status() == Uploader::Ready)
     {
-        QFutureWatcher<shared_ptr<Uploader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_file("foo.txt", 0));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        uploader = watcher.result();
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
+    ASSERT_EQ(Uploader::Error, uploader->status());
 
-    {
-        QFutureWatcher<shared_ptr<File>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(uploader->finish_upload());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        try
-        {
-            watcher.result();
-            FAIL();
-        }
-        catch (ConflictException const& e)
-        {
-            EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-None-Match header was specified, but the ETag matched (or * was specified).", e.error_message());
-        }
-    }
+    auto error = uploader->error();
+    EXPECT_EQ(StorageError::Conflict, error.type());
+    EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-None-Match header was specified, but the ETag matched (or * was specified).", error.message());
 }
 
-#if 0
-// v1 client API doesn't let us do this.  Revisit for v2 API.
 TEST_F(DavProviderTests, create_file_overwrite_existing)
 {
+    auto account = get_client();
+    make_file("foo.txt");
+
+    Item root = get_root(account);
+    unique_ptr<Uploader> uploader(
+        root.createFile("foo.txt", Item::IgnoreConflict, 0, "text/plain"));
+    QSignalSpy spy(uploader.get(), &Uploader::statusChanged);
+    while (uploader->status() == Uploader::Loading)
+    {
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
+
+    uploader->close();
+    while (uploader->status() == Uploader::Ready)
+    {
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
+    ASSERT_EQ(Uploader::Finished, uploader->status())
+        << uploader->error().errorString().toStdString();
 }
-#endif
 
 TEST_F(DavProviderTests, update)
 {
@@ -642,68 +494,44 @@ TEST_F(DavProviderTests, update)
     // Sleep to ensure modification time changes
     sleep(1);
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<File> file;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        file = dynamic_pointer_cast<File>(watcher.result());
-    }
-    ASSERT_NE(nullptr, file.get());
-    QString old_etag = file->etag();
+    auto file = job->item();
+    QString old_etag = file.etag();
 
-    shared_ptr<Uploader> uploader;
-    {
-        QFutureWatcher<shared_ptr<Uploader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(file->create_uploader(ConflictPolicy::error_if_conflict, file_contents.size() * segments));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        uploader = watcher.result();
-    }
+    unique_ptr<Uploader> uploader(
+        file.createUploader(Item::ErrorIfConflict,
+                            file_contents.size() * segments));
 
-    auto socket = uploader->socket();
     int count = 0;
     QTimer timer;
     timer.setSingleShot(false);
     timer.setInterval(10);
-    QFutureWatcher<shared_ptr<File>> watcher;
     QObject::connect(&timer, &QTimer::timeout, [&] {
-            socket->write(&file_contents[0], file_contents.size());
+            uploader->write(&file_contents[0], file_contents.size());
             count++;
             if (count == segments)
             {
-                watcher.setFuture(uploader->finish_upload());
+                uploader->close();
             }
         });
 
-    QSignalSpy spy(&watcher, &decltype(watcher)::finished);
+    QSignalSpy spy(uploader.get(), &Uploader::statusChanged);
     timer.start();
-    ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-    file = watcher.result();
+    while (uploader->status() == Uploader::Loading ||
+           uploader->status() == Uploader::Ready)
+    {
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
+    }
+    ASSERT_EQ(Uploader::Finished, uploader->status())
+        << uploader->error().errorString().toStdString();
 
-    EXPECT_NE(old_etag, file->etag());
-    EXPECT_EQ(int64_t(file_contents.size() * segments), file->size());
+    file = uploader->item();
+    EXPECT_NE(old_etag, file.etag());
+    EXPECT_EQ(int64_t(file_contents.size() * segments), file.sizeInBytes());
 }
 
 TEST_F(DavProviderTests, update_conflict)
@@ -713,159 +541,83 @@ TEST_F(DavProviderTests, update_conflict)
     // Sleep to ensure modification time changes
     sleep(1);
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
-
-    shared_ptr<File> file;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        file = dynamic_pointer_cast<File>(watcher.result());
-    }
-    ASSERT_NE(nullptr, file.get());
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
     // Change the file after metadata has been looked up
     touch_file("foo.txt");
 
-    shared_ptr<Uploader> uploader;
+    auto file = job->item();
+    unique_ptr<Uploader> uploader(
+        file.createUploader(Item::ErrorIfConflict, 0));
+    QSignalSpy spy(uploader.get(), &Uploader::statusChanged);
+    while (uploader->status() == Uploader::Loading)
     {
-        QFutureWatcher<shared_ptr<Uploader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(file->create_uploader(ConflictPolicy::error_if_conflict, 0));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        uploader = watcher.result();
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
 
+    uploader->close();
+    while (uploader->status() == Uploader::Ready)
     {
-        QFutureWatcher<shared_ptr<File>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(uploader->finish_upload());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        try
-        {
-            watcher.result();
-            FAIL();
-        }
-        catch (ConflictException const& e)
-        {
-            EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-Match header was specified, but none of the specified the ETags matched.", e.error_message());
-        }
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
+    ASSERT_EQ(Uploader::Error, uploader->status());
+
+    auto error = uploader->error();
+    EXPECT_EQ(StorageError::Conflict, error.type());
+    EXPECT_EQ("Sabre\\DAV\\Exception\\PreconditionFailed: An If-Match header was specified, but none of the specified the ETags matched.", error.message());
 }
 
 TEST_F(DavProviderTests, upload_short_write)
 {
     auto account = get_client();
 
-    shared_ptr<Root> root;
+    Item root = get_root(account);
+    unique_ptr<Uploader> uploader(
+        root.createFile("foo.txt", Item::ErrorIfConflict, 1000, "text/plain"));
+    QSignalSpy spy(uploader.get(), &Uploader::statusChanged);
+    while (uploader->status() == Uploader::Loading)
     {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
 
-    shared_ptr<Uploader> uploader;
+    uploader->close();
+    while (uploader->status() == Uploader::Ready)
     {
-        QFutureWatcher<shared_ptr<Uploader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_file("foo.txt", 1000));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        uploader = watcher.result();
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
+    ASSERT_EQ(Uploader::Error, uploader->status());
 
-    {
-        QFutureWatcher<shared_ptr<File>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(uploader->finish_upload());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        try
-        {
-            watcher.result();
-            FAIL();
-        }
-        catch (RemoteCommsException const& e)
-        {
-            EXPECT_EQ("Unknown error", e.error_message());
-        }
-    }
+    auto error = uploader->error();
+    EXPECT_EQ(StorageError::RemoteCommsError, error.type());
+    EXPECT_EQ("Unknown error", error.message());
 }
 
 TEST_F(DavProviderTests, upload_cancel)
 {
     auto account = get_client();
-    shared_ptr<Root> root;
+
+    Item root = get_root(account);
+    unique_ptr<Uploader> uploader(
+        root.createFile("foo.txt", Item::ErrorIfConflict, 1000, "text/plain"));
+    QSignalSpy spy(uploader.get(), &Uploader::statusChanged);
+    while (uploader->status() == Uploader::Loading)
     {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
 
-    shared_ptr<Uploader> uploader;
+    uploader->cancel();
+    while (uploader->status() == Uploader::Ready)
     {
-        QFutureWatcher<shared_ptr<Uploader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->create_file("filename.txt", 1000));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        uploader = watcher.result();
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
+    ASSERT_EQ(Uploader::Cancelled, uploader->status());
 
-    {
-        QFutureWatcher<void> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(uploader->cancel());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        // QFuture<void> doesn't have result, but exceptions will be
-        // thrown from waitForFinished().
-        watcher.waitForFinished();
-    }
+    auto error = uploader->error();
+    EXPECT_EQ(StorageError::Cancelled, error.type());
+    EXPECT_EQ("Uploader::cancel(): upload was cancelled", error.message());
 }
 
 TEST_F(DavProviderTests, download)
@@ -886,70 +638,38 @@ TEST_F(DavProviderTests, download)
     }
 
     auto account = get_client();
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
 
-    shared_ptr<File> file;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        file = dynamic_pointer_cast<File>(watcher.result());
-    }
-    ASSERT_NE(nullptr, file.get());
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<Downloader> downloader;
-    {
-        QFutureWatcher<shared_ptr<Downloader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(file->create_downloader());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        downloader = watcher.result();
-    }
+    auto file = job->item();
+
+    unique_ptr<Downloader> downloader(
+        file.createDownloader(Item::ErrorIfConflict));
 
     int64_t n_read = 0;
-    auto socket = downloader->socket();
-    QObject::connect(socket.get(), &QIODevice::readyRead,
-                     [socket, &large_contents, &n_read]() {
-                         auto bytes = socket->readAll();
+    QObject::connect(downloader.get(), &QIODevice::readyRead,
+                     [&]() {
+                         auto bytes = downloader->readAll();
                          string const expected = large_contents.substr(
                              n_read, bytes.size());
                          EXPECT_EQ(expected, bytes.toStdString());
                          n_read += bytes.size();
                      });
-    {
-        QSignalSpy spy(socket.get(), &QIODevice::readChannelFinished);
-        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-    }
+    QSignalSpy read_finished_spy(
+        downloader.get(), &QIODevice::readChannelFinished);
+    ASSERT_TRUE(read_finished_spy.wait(SIGNAL_WAIT_TIME));
 
+    QSignalSpy status_spy(downloader.get(), &Downloader::statusChanged);
+    downloader->close();
+    while (downloader->status() == Downloader::Ready)
     {
-        QFutureWatcher<void> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(downloader->finish_download());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        watcher.waitForFinished(); // to check for errors
+        ASSERT_TRUE(status_spy.wait(SIGNAL_WAIT_TIME));
     }
+    ASSERT_EQ(Downloader::Finished, downloader->status())
+        << downloader->error().errorString().toStdString();
 
     EXPECT_EQ(int64_t(large_contents.size()), n_read);
 }
@@ -969,64 +689,32 @@ TEST_F(DavProviderTests, download_short_read)
     }
 
     auto account = get_client();
-    shared_ptr<Root> root;
+
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
+
+    auto file = job->item();
+    unique_ptr<Downloader> downloader(
+        file.createDownloader(Item::ErrorIfConflict));
+
+    QSignalSpy spy(downloader.get(), &Downloader::statusChanged);
+    while (downloader->status() == Downloader::Loading)
     {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
 
-    shared_ptr<File> file;
+    downloader->close();
+    while (downloader->status() == Downloader::Ready)
     {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        file = dynamic_pointer_cast<File>(watcher.result());
+        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
     }
-    ASSERT_NE(nullptr, file.get());
+    ASSERT_EQ(Downloader::Error, downloader->status());
 
-    shared_ptr<Downloader> downloader;
-    {
-        QFutureWatcher<shared_ptr<Downloader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(file->create_downloader());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        downloader = watcher.result();
-    }
-
-    {
-        QFutureWatcher<void> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(downloader->finish_download());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-
-        try
-        {
-            watcher.waitForFinished(); // to check for errors
-            FAIL();
-        }
-        catch (LogicException const& e)
-        {
-            EXPECT_EQ("finish called before all data sent", e.error_message());
-        }
-    }
+    auto error = downloader->error();
+    EXPECT_EQ(StorageError::LogicError, error.type());
+    EXPECT_EQ("finish called before all data sent", error.message());
 }
 
 TEST_F(DavProviderTests, download_not_found)
@@ -1034,77 +722,38 @@ TEST_F(DavProviderTests, download_not_found)
     auto account = get_client();
     make_file("foo.txt");
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<File> file;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        file = dynamic_pointer_cast<File>(watcher.result());
-    }
-    ASSERT_NE(nullptr, file.get());
+    auto file = job->item();
 
     ASSERT_EQ(0, unlink(local_file("foo.txt").c_str()));
 
-    shared_ptr<Downloader> downloader;
-    {
-        QFutureWatcher<shared_ptr<Downloader>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(file->create_downloader());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        downloader = watcher.result();
-    }
+    unique_ptr<Downloader> downloader(
+        file.createDownloader(Item::ErrorIfConflict));
 
-    auto socket = downloader->socket();
-    QObject::connect(socket.get(), &QIODevice::readyRead,
-                     [socket]() {
-                         socket->readAll();
+    QObject::connect(downloader.get(), &QIODevice::readyRead,
+                     [&]() {
+                         downloader->readAll();
                      });
-    {
-        QSignalSpy spy(socket.get(), &QIODevice::readChannelFinished);
-        ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-    }
+    QSignalSpy read_finished_spy(
+        downloader.get(), &QIODevice::readChannelFinished);
+    ASSERT_TRUE(read_finished_spy.wait(SIGNAL_WAIT_TIME));
 
+    QSignalSpy status_spy(downloader.get(), &Downloader::statusChanged);
+    downloader->close();
+    while (downloader->status() == Downloader::Ready)
     {
-        QFutureWatcher<void> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(downloader->finish_download());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-
-        try
-        {
-            watcher.waitForFinished(); // to check for errors
-            FAIL();
-        }
-        catch (NotExistsException const& e)
-        {
-            EXPECT_TRUE(e.error_message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
-                << e.error_message().toStdString();
-        }
+        ASSERT_TRUE(status_spy.wait(SIGNAL_WAIT_TIME));
     }
+    ASSERT_EQ(Downloader::Error, downloader->status());
+
+    auto error = downloader->error();
+    EXPECT_EQ(StorageError::NotExists, error.type());
+    EXPECT_TRUE(error.message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
+        << error.message().toStdString();
 }
 
 TEST_F(DavProviderTests, delete_item)
@@ -1112,42 +761,16 @@ TEST_F(DavProviderTests, delete_item)
     auto account = get_client();
     make_file("foo.txt");
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<Item> item;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        item = watcher.result();
-    }
-
-    {
-        QFutureWatcher<void> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(item->delete_item());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        watcher.waitForFinished(); // to catch any errors
-    }
+    Item item = job->item();
+    unique_ptr<VoidJob> delete_job(item.deleteItem());
+    wait_for(delete_job.get());
+    ASSERT_EQ(VoidJob::Finished, delete_job->status())
+        << delete_job->error().errorString().toStdString();
 
     struct stat buf;
     EXPECT_EQ(-1, stat(local_file("foo.txt").c_str(), &buf));
@@ -1159,54 +782,23 @@ TEST_F(DavProviderTests, delete_item_not_found)
     auto account = get_client();
     make_file("foo.txt");
 
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    shared_ptr<Item> item;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        item = watcher.result();
-    }
+    Item item = job->item();
 
     ASSERT_EQ(0, unlink(local_file("foo.txt").c_str()));
 
-    {
-        QFutureWatcher<void> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(item->delete_item());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        try
-        {
-            watcher.waitForFinished(); // to catch any errors
-            FAIL();
-        }
-        catch (NotExistsException const& e)
-        {
-            EXPECT_TRUE(e.error_message().startsWith(
-                            "Sabre\\DAV\\Exception\\NotFound: "))
-                << e.error_message().toStdString();
-        }
-    }
+    unique_ptr<VoidJob> delete_job(item.deleteItem());
+    wait_for(delete_job.get());
+    ASSERT_EQ(VoidJob::Error, delete_job->status());
+
+    auto error = delete_job->error();
+    EXPECT_EQ(StorageError::NotExists, error.type());
+    EXPECT_TRUE(error.message().startsWith("Sabre\\DAV\\Exception\\NotFound: "))
+        << error.message().toStdString();
 }
 
 TEST_F(DavProviderTests, move)
@@ -1220,50 +812,28 @@ TEST_F(DavProviderTests, move)
     }
 
     auto account = get_client();
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
 
-    shared_ptr<Item> item;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        item = watcher.result();
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(item->move(root, "new-name.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        item = watcher.result();
-    }
+    Item item = job->item();
 
-    EXPECT_EQ("new-name.txt", item->native_identity());
-    ASSERT_EQ(1, item->parent_ids().size());
-    EXPECT_EQ(".", item->parent_ids().at(0));
-    EXPECT_EQ("new-name.txt", item->name());
-    EXPECT_NE(0, item->etag().size());
-    EXPECT_EQ(ItemType::file, item->type());
-    EXPECT_EQ(int64_t(file_contents.size()), dynamic_pointer_cast<File>(item)->size());
+    job.reset(item.move(root, "new-name.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
+
+    item = job->item();
+    EXPECT_EQ("new-name.txt", item.itemId());
+    ASSERT_EQ(1, item.parentIds().size());
+    EXPECT_EQ(".", item.parentIds().at(0));
+    EXPECT_EQ("new-name.txt", item.name());
+    EXPECT_NE(0, item.etag().size());
+    EXPECT_EQ(Item::File, item.type());
+    EXPECT_EQ(int64_t(file_contents.size()), item.sizeInBytes());
 
     // The old file no longer exists
     struct stat buf;
@@ -1297,50 +867,28 @@ TEST_F(DavProviderTests, copy)
     }
 
     auto account = get_client();
-    shared_ptr<Root> root;
-    {
-        QFutureWatcher<QVector<shared_ptr<Root>>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(account->roots());
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        auto roots = watcher.result();
-        ASSERT_EQ(1, roots.size());
-        root = roots[0];
-    }
+    Item root = get_root(account);
 
-    shared_ptr<Item> item;
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(root->get("foo.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        item = watcher.result();
-    }
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
 
-    {
-        QFutureWatcher<shared_ptr<Item>> watcher;
-        QSignalSpy spy(&watcher, &decltype(watcher)::finished);
-        watcher.setFuture(item->copy(root, "new-name.txt"));
-        if (spy.count() == 0)
-        {
-            ASSERT_TRUE(spy.wait(SIGNAL_WAIT_TIME));
-        }
-        item = watcher.result();
-    }
+    Item item = job->item();
 
-    EXPECT_EQ("new-name.txt", item->native_identity());
-    ASSERT_EQ(1, item->parent_ids().size());
-    EXPECT_EQ(".", item->parent_ids().at(0));
-    EXPECT_EQ("new-name.txt", item->name());
-    EXPECT_NE(0, item->etag().size());
-    EXPECT_EQ(ItemType::file, item->type());
-    EXPECT_EQ(int64_t(file_contents.size()), dynamic_pointer_cast<File>(item)->size());
+    job.reset(item.copy(root, "new-name.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
+
+    item = job->item();
+    EXPECT_EQ("new-name.txt", item.itemId());
+    ASSERT_EQ(1, item.parentIds().size());
+    EXPECT_EQ(".", item.parentIds().at(0));
+    EXPECT_EQ("new-name.txt", item.name());
+    EXPECT_NE(0, item.etag().size());
+    EXPECT_EQ(Item::File, item.type());
+    EXPECT_EQ(int64_t(file_contents.size()), item.sizeInBytes());
 
     // The old file still exists
     struct stat buf;

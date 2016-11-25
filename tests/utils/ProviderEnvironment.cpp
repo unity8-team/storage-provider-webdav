@@ -24,7 +24,7 @@
 
 using namespace std;
 using namespace unity::storage::provider;
-using namespace unity::storage::qt::client;
+using namespace unity::storage::qt;
 
 namespace
 {
@@ -51,13 +51,13 @@ ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provide
                                           *server_connection_,
                                           OBJECT_PATH.toStdString()));
 
-    client_runtime_ = Runtime::create(*client_connection_);
-    client_account_ = client_runtime_->make_test_account(server_connection_->baseService(), OBJECT_PATH);
+    client_runtime_.reset(new Runtime(*client_connection_));
+    client_account_ = client_runtime_->make_test_account(
+        server_connection_->baseService(), OBJECT_PATH);
 }
 
 ProviderEnvironment::~ProviderEnvironment()
 {
-    client_account_.reset();
     client_runtime_->shutdown();
     client_runtime_.reset();
 
@@ -69,7 +69,7 @@ ProviderEnvironment::~ProviderEnvironment()
     client_connection_.reset();
 }
 
-shared_ptr<Account> ProviderEnvironment::get_client() const
+Account ProviderEnvironment::get_client() const
 {
     return client_account_;
 }
