@@ -240,6 +240,7 @@ Item DavProvider::make_item(QUrl const& href, QUrl const& base_url,
     {
         item.type = ItemType::root;
         item.name = "Root";
+        item.parent_ids.clear();
     }
     return item;
 }
