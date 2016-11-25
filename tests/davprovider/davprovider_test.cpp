@@ -42,6 +42,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <utime.h>
 #include <algorithm>
 
 using namespace std;
@@ -151,7 +152,18 @@ protected:
     void touch_file(string const& path)
     {
         string full_path = local_file(path);
-        ASSERT_EQ(0, utimes(full_path.c_str(), nullptr));
+        ASSERT_EQ(0, utime(full_path.c_str(), nullptr));
+    }
+
+    void offset_mtime(string const& path, int offset_seconds)
+    {
+        string full_path = local_file(path);
+        struct stat buf;
+        ASSERT_EQ(0, stat(full_path.c_str(), &buf));
+        struct utimbuf times;
+        times.actime = buf.st_atime + offset_seconds;
+        times.modtime = buf.st_mtime + offset_seconds;
+        ASSERT_EQ(0, utime(full_path.c_str(), &times));
     }
 
 private:
@@ -491,8 +503,8 @@ TEST_F(DavProviderTests, update)
 
     auto account = get_client();
     make_file("foo.txt");
-    // Sleep to ensure modification time changes
-    sleep(1);
+    // Offset to ensure modification time changes
+    offset_mtime("foo.txt", -10);
 
     unique_ptr<ItemJob> job(account.get("foo.txt"));
     wait_for(job.get());
@@ -538,8 +550,8 @@ TEST_F(DavProviderTests, update_conflict)
 {
     auto account = get_client();
     make_file("foo.txt");
-    // Sleep to ensure modification time changes
-    sleep(1);
+    // Offset to ensure modification time changes
+    offset_mtime("foo.txt", -10);
 
     unique_ptr<ItemJob> job(account.get("foo.txt"));
     wait_for(job.get());
