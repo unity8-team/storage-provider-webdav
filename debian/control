@@ -1,8 +1,8 @@
 Source: storage-provider-webdav
-Section: ???
+Section: net
 Priority: optional
-Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-Standards-Version: 3.9.6
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Standards-Version: 3.9.8
 Build-Depends: cmake,
                cmake-extras (>= 0.4),
                debhelper (>= 9),
@@ -12,8 +12,9 @@ Build-Depends: cmake,
                libgtest-dev,
                libonline-accounts-qt-dev,
                libqtdbustest1-dev,
-               storage-framework-provider-dev,
-               storage-framework-client-dev,
+               libstorage-framework-qt-client-2-0,
+               storage-framework-provider-dev (>= 0.2),
+               storage-framework-client-dev (>= 0.2),
                php-cli | php5-cli <!nocheck>,
                php-sabre-dav <!nocheck>,
                pkg-config,
@@ -31,8 +32,8 @@ Package: storage-provider-owncloud
 Architecture: any
 Multi-Arch: foreign
 Pre-Depends: ${misc:Pre-Depends},
-Depends: ${misc:Depends},
+Depends: account-plugin-owncloud,
+         ${misc:Depends},
          ${shlibs:Depends},
-         account-plugin-owncloud
 Description: Owncloud plugin for Storage Framework
  A Storage Framework plugin providing access to Owncloud servers.

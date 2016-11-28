@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2016 Canonical Ltd.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Authored by: James Henstridge <james.henstridge@canonical.com>
+ */
+
 #include "../../src/MultiStatusParser.h"
 
 #include <gtest/gtest.h>
@@ -139,12 +157,12 @@ TEST(MultiStatus, response_status)
     ASSERT_EQ(2, response_spy.count());
     QList<QVariant> args = response_spy.takeFirst();
     EXPECT_EQ("http://example.com/webdav/secret", args[0].value<QUrl>().toEncoded().toStdString());
-    EXPECT_EQ(0, args[1].value<vector<MultiStatusProperty>>().size());
+    EXPECT_EQ(0u, args[1].value<vector<MultiStatusProperty>>().size());
     EXPECT_EQ(403, args[2].value<int>());
 
     args = response_spy.takeFirst();
     EXPECT_EQ("http://example.com/webdav/", args[0].value<QUrl>().toEncoded().toStdString());
-    EXPECT_EQ(0, args[1].value<vector<MultiStatusProperty>>().size());
+    EXPECT_EQ(0u, args[1].value<vector<MultiStatusProperty>>().size());
     EXPECT_EQ(424, args[2].value<int>());
 }
 
@@ -197,7 +215,7 @@ TEST(MultiStatus, response_properties)
     EXPECT_EQ(0, args[2].value<int>());
     auto props = args[1].value<vector<MultiStatusProperty>>();
 
-    ASSERT_EQ(4, props.size());
+    ASSERT_EQ(4u, props.size());
 
     EXPECT_EQ("http://ns.example.com/boxschema/", props[0].ns);
     EXPECT_EQ("bigbox", props[0].name);
@@ -257,7 +275,7 @@ TEST(MultiStatus, resourcetype_container)
     EXPECT_EQ(0, args[2].value<int>());
     auto props = args[1].value<vector<MultiStatusProperty>>();
 
-    ASSERT_EQ(1, props.size());
+    ASSERT_EQ(1u, props.size());
     EXPECT_EQ("DAV:", props[0].ns);
     EXPECT_EQ("resourcetype", props[0].name);
     EXPECT_EQ("DAV:collection", props[0].value);
@@ -315,7 +333,7 @@ TEST(MultiStatus, incremental_parse)
     QList<QVariant> args = response_spy.takeFirst();
     EXPECT_EQ("http://www.example.com/container/", args[0].value<QUrl>().toEncoded().toStdString());
     auto props = args[1].value<vector<MultiStatusProperty>>();
-    ASSERT_EQ(3, props.size());
+    ASSERT_EQ(3u, props.size());
     EXPECT_EQ("creationdate", props[0].name);
     EXPECT_EQ("displayname", props[1].name);
     EXPECT_EQ("resourcetype", props[2].name);
@@ -332,7 +350,7 @@ TEST(MultiStatus, incremental_parse)
     args = response_spy.takeFirst();
     EXPECT_EQ("http://www.example.com/container/front.html", args[0].value<QUrl>().toEncoded().toStdString());
     props = args[1].value<vector<MultiStatusProperty>>();
-    ASSERT_EQ(7, props.size());
+    ASSERT_EQ(7u, props.size());
     EXPECT_EQ("creationdate", props[0].name);
     EXPECT_EQ("displayname", props[1].name);
     EXPECT_EQ("getcontentlength", props[2].name);

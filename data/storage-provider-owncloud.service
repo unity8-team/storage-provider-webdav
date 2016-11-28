@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- -*- mode: nxml -*- -->
+<service id="storage-provider-owncloud">
+  <type>storage-provider</type>
+  <name>OwnCloud</name>
+  <icon>online-accounts-owncloud</icon>
+  <provider>owncloud</provider>
+</service>

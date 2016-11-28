@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2016 Canonical Ltd.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Authored by: James Henstridge <james.henstridge@canonical.com>
+ */
+
 #include "item_id.h"
 
 #include <unity/storage/provider/Exceptions.h>
@@ -43,4 +61,45 @@ string url_to_id(QUrl const& item_url, QUrl const& base_url)
         item_id = ".";
     }
     return item_id;
+}
+
+// Construct a possible ID for a named child of a parent ID
+string make_child_id(string const& parent_id, string const& name, bool is_folder)
+{
+    if (name == "." || name == "..")
+    {
+        throw InvalidArgumentException("Invalid name: " + name);
+    }
+
+    string item_id = parent_id;
+    if (item_id == ".")
+    {
+        item_id.clear();
+    }
+    else if (item_id.size() == 0 || item_id[item_id.size()-1] != '/')
+    {
+        item_id += '/';
+    }
+    item_id += QUrl::toPercentEncoding(QString::fromStdString(name)).toStdString();
+
+    if (is_folder)
+    {
+        item_id += '/';
+    }
+
+    return item_id;
+}
+
+bool is_folder(string const& item_id)
+{
+    auto size = item_id.size();
+    if (size == 0)
+    {
+        throw InvalidArgumentException("Invalid blank item ID");
+    }
+    if (size == 1 && item_id[0] == '.')
+    {
+        return true;
+    }
+    return item_id[size-1] == '/';
 }

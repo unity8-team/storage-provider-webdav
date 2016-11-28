@@ -24,12 +24,13 @@
 
 #include "PropFindHandler.h"
 
-class RootsHandler : public PropFindHandler {
+class LookupHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    RootsHandler(std::shared_ptr<DavProvider> const& provider,
-                 unity::storage::provider::Context const& ctx);
-    ~RootsHandler();
+    LookupHandler(std::shared_ptr<DavProvider> const& provider,
+                  std::string const& item_id,
+                  unity::storage::provider::Context const& ctx);
+    ~LookupHandler();
 
     boost::future<unity::storage::provider::ItemList> get_future();
 

@@ -18,24 +18,32 @@
 
 #pragma once
 
+#include <QBuffer>
 #include <QObject>
+#include <QNetworkReply>
+#include <unity/storage/provider/ProviderBase.h>
 
 #include <memory>
 
-#include "PropFindHandler.h"
+class DavProvider;
 
-class RootsHandler : public PropFindHandler {
+class DeleteHandler : public QObject {
     Q_OBJECT
 public:
-    RootsHandler(std::shared_ptr<DavProvider> const& provider,
-                 unity::storage::provider::Context const& ctx);
-    ~RootsHandler();
+    DeleteHandler(std::shared_ptr<DavProvider> const& provider, std::string const& item_id,
+                  unity::storage::provider::Context const& ctx);
+    ~DeleteHandler();
 
-    boost::future<unity::storage::provider::ItemList> get_future();
+    boost::future<void> get_future();
+
+private Q_SLOTS:
+    void onFinished();
 
 private:
-    boost::promise<unity::storage::provider::ItemList> promise_;
+    boost::promise<void> promise_;
 
-protected:
-    void finish() override;
+    std::shared_ptr<DavProvider> const provider_;
+    std::string const item_id_;
+
+    std::unique_ptr<QNetworkReply> reply_;
 };

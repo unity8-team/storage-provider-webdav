@@ -20,21 +20,25 @@
 
 #include <QObject>
 
+#include <functional>
 #include <memory>
 
 #include "PropFindHandler.h"
 
-class RootsHandler : public PropFindHandler {
+class RetrieveMetadataHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    RootsHandler(std::shared_ptr<DavProvider> const& provider,
-                 unity::storage::provider::Context const& ctx);
-    ~RootsHandler();
+    typedef std::function<void(unity::storage::provider::Item const& item,
+                               boost::exception_ptr const& error)> Callback;
 
-    boost::future<unity::storage::provider::ItemList> get_future();
+    RetrieveMetadataHandler(std::shared_ptr<DavProvider> const& provider,
+                            std::string const& item_id,
+                            unity::storage::provider::Context const& ctx,
+                            Callback callback);
+    ~RetrieveMetadataHandler();
 
 private:
-    boost::promise<unity::storage::provider::ItemList> promise_;
+    Callback const callback_;
 
 protected:
     void finish() override;

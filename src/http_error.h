@@ -18,24 +18,13 @@
 
 #pragma once
 
-#include <QObject>
+#include <boost/thread.hpp>
 
-#include <memory>
+class QByteArray;
+class QNetworkReply;
 
-#include "PropFindHandler.h"
+static constexpr int MAX_ERROR_BODY_LENGTH = 64 * 1024;
 
-class RootsHandler : public PropFindHandler {
-    Q_OBJECT
-public:
-    RootsHandler(std::shared_ptr<DavProvider> const& provider,
-                 unity::storage::provider::Context const& ctx);
-    ~RootsHandler();
-
-    boost::future<unity::storage::provider::ItemList> get_future();
-
-private:
-    boost::promise<unity::storage::provider::ItemList> promise_;
-
-protected:
-    void finish() override;
-};
+boost::exception_ptr translate_http_error(QNetworkReply *reply,
+                                          QByteArray const& body,
+                                          std::string const& item_id={});

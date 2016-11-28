@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2016 Canonical Ltd.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Authored by: James Henstridge <james.henstridge@canonical.com>
+ */
+
 #include "../../src/item_id.h"
 
 #include <unity/storage/provider/Exceptions.h>
@@ -53,6 +71,34 @@ TEST(ItemId, url_to_id)
     EXPECT_THROW(to_id("http://www.example.com/base/dir/"), RemoteCommsException);
 }
 
+TEST(ItemId, make_child_id)
+{
+    EXPECT_EQ("foo", make_child_id(".", "foo"));
+    EXPECT_EQ("foo/bar", make_child_id("foo", "bar"));
+    EXPECT_EQ("foo/bar", make_child_id("foo/", "bar"));
+
+    // Constructing a folder-type child ID
+    EXPECT_EQ("foo/", make_child_id(".", "foo", true));
+    EXPECT_EQ("foo/bar/", make_child_id("foo/", "bar", true));
+
+    EXPECT_EQ("foo/hello%20world%3F", make_child_id("foo/", "hello world?"));
+    EXPECT_EQ("foo/na%C3%AFve", make_child_id("foo/", "na\u00EFve"));
+
+    EXPECT_THROW(make_child_id("foo/", "."), InvalidArgumentException);
+    EXPECT_THROW(make_child_id("foo/", ".."), InvalidArgumentException);
+}
+
+TEST(ItemId, is_folder)
+{
+    EXPECT_TRUE(is_folder("."));
+    EXPECT_TRUE(is_folder("foo/"));
+    EXPECT_TRUE(is_folder("foo/bar/"));
+
+    EXPECT_FALSE(is_folder("foo"));
+    EXPECT_FALSE(is_folder("foo/bar"));
+
+    EXPECT_THROW(is_folder(""), InvalidArgumentException);
+}
 
 int main(int argc, char**argv)
 {

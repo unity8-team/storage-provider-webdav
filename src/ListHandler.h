@@ -21,20 +21,22 @@
 #include <QObject>
 
 #include <memory>
+#include <tuple>
 
 #include "PropFindHandler.h"
 
-class RootsHandler : public PropFindHandler {
+class ListHandler : public PropFindHandler {
     Q_OBJECT
 public:
-    RootsHandler(std::shared_ptr<DavProvider> const& provider,
-                 unity::storage::provider::Context const& ctx);
-    ~RootsHandler();
+    ListHandler(std::shared_ptr<DavProvider> const& provider,
+                std::string const& parent_id,
+                unity::storage::provider::Context const& ctx);
+    ~ListHandler();
 
-    boost::future<unity::storage::provider::ItemList> get_future();
+    boost::future<std::tuple<unity::storage::provider::ItemList,std::string>> get_future();
 
 private:
-    boost::promise<unity::storage::provider::ItemList> promise_;
+    boost::promise<std::tuple<unity::storage::provider::ItemList,std::string>> promise_;
 
 protected:
     void finish() override;
