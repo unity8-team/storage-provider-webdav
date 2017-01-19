@@ -34,7 +34,9 @@ OwncloudProvider::~OwncloudProvider() = default;
 QUrl OwncloudProvider::base_url(Context const& ctx) const
 {
     const auto& creds = boost::get<PasswordCredentials>(ctx.credentials);
-    return QUrl(QStringLiteral("http://localhost:8888/owncloud/remote.php/dav/files/%1/").arg(QString::fromStdString(creds.username)));
+    // get the host, removing any '/' at the end
+    auto host = QString::fromStdString(creds.host).remove(QRegExp("/*$"));
+    return QUrl(QStringLiteral("%1/remote.php/dav/files/%2/").arg(host).arg(QString::fromStdString(creds.username)));
 }
 
 QNetworkReply *OwncloudProvider::send_request(
