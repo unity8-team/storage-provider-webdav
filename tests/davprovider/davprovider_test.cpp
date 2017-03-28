@@ -302,6 +302,14 @@ TEST_F(DavProviderTests, lookup)
     EXPECT_EQ(".", items[0].parentIds().at(0));
     EXPECT_EQ("foo.txt", items[0].name());
     EXPECT_EQ(Item::File, items[0].type());
+
+    {
+        unique_ptr<ItemListJob> job(root.lookup("no_such_file.txt"));
+        QList<Item> items = get_items(job.get());
+        EXPECT_EQ(ItemListJob::Error, job->status());
+        EXPECT_EQ(StorageError::NotExists, job->error().type());
+        EXPECT_EQ("no_such_file.txt", job->error().itemName()) << job->error().itemName().toStdString();
+    }
 }
 
 TEST_F(DavProviderTests, metadata)
