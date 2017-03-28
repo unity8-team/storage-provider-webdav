@@ -67,6 +67,10 @@ boost::future<tuple<ItemList,string>> DavProvider::list(
     vector<string> const& metadata_keys, Context const& ctx)
 {
     Q_UNUSED(metadata_keys);
+    if (!is_folder(item_id))
+    {
+        throw LogicException(item_id + " is not a folder");
+    }
     if (!page_token.empty())
     {
         throw InvalidArgumentException("Invalid paging token: " + page_token);
