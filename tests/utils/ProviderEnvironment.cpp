@@ -18,6 +18,7 @@
 
 #include "ProviderEnvironment.h"
 
+#include <libqtdbustest/DBusTestRunner.h>
 #include <unity/storage/provider/ProviderBase.h>
 
 #include <cassert>
@@ -34,12 +35,12 @@ const auto OBJECT_PATH = QStringLiteral("/provider");
 
 }
 
-ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provider,
-                                         DBusEnvironment const& dbus_env)
+ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provider)
 {
-    client_connection_.reset(new QDBusConnection(dbus_env.connection()));
+    runner_.reset(new QtDBusTest::DBusTestRunner());
+    client_connection_.reset(new QDBusConnection(runner_->sessionConnection()));
     server_connection_.reset(new QDBusConnection(
-        QDBusConnection::connectToBus(dbus_env.busAddress(),
+        QDBusConnection::connectToBus(runner_->sessionBus(),
                                       SERVICE_CONNECTION_NAME)));
 
     server_.reset(new testing::TestServer(provider, nullptr,
@@ -61,6 +62,7 @@ ProviderEnvironment::~ProviderEnvironment()
     server_connection_.reset();
     QDBusConnection::disconnectFromBus(SERVICE_CONNECTION_NAME);
     client_connection_.reset();
+    runner_.reset();
 }
 
 Account ProviderEnvironment::get_client() const

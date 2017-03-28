@@ -27,16 +27,21 @@
 
 #include <memory>
 
+namespace QtDBusTest
+{
+class DBusTestRunner;
+}
+
 class ProviderEnvironment
 {
 public:
-    ProviderEnvironment(std::shared_ptr<unity::storage::provider::ProviderBase> const& provider,
-                        DBusEnvironment const& dbus_env);
+    ProviderEnvironment(std::shared_ptr<unity::storage::provider::ProviderBase> const& provider);
     ~ProviderEnvironment();
 
     unity::storage::qt::Account get_client() const;
 
 private:
+    std::unique_ptr<QtDBusTest::DBusTestRunner> runner_;
     std::unique_ptr<QDBusConnection> client_connection_;
     std::unique_ptr<QDBusConnection> server_connection_;
     std::unique_ptr<unity::storage::provider::testing::TestServer> server_;

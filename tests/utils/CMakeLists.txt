@@ -1,7 +1,6 @@
 pkg_check_modules(TESTUTILS_DEPS libqtdbustest-1 REQUIRED)
 
 add_library(testutils STATIC
-  DBusEnvironment.cpp
   DavEnvironment.cpp
   ProviderEnvironment.cpp
 )
