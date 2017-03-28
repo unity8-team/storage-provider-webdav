@@ -16,8 +16,6 @@ Build-Depends: cmake,
                php-cli | php5-cli <!nocheck>,
                php-sabre-dav <!nocheck>,
                pkg-config,
-               python3-dbus <!nocheck>,
-               python3-gi <!nocheck>,
                qtbase5-dev,
                qtbase5-dev-tools,
 Homepage: https://launchpad.net/storage-provider-webdav
