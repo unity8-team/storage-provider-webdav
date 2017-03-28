@@ -37,12 +37,6 @@ public:
     QDBusConnection const& connection() const;
     QString const& busAddress() const;
 
-    void start_services();
-
-    QProcess& accounts_service_process();
-
 private:
     std::unique_ptr<QtDBusTest::DBusTestRunner> runner_;
-    QSharedPointer<QtDBusTest::QProcessDBusService> accounts_service_;
-    QSharedPointer<QtDBusTest::QProcessDBusService> demo_provider_;
 };

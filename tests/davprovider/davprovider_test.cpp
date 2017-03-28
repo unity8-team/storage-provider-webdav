@@ -88,9 +88,8 @@ public:
         QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
         provider::Context const& ctx) const override
     {
-        const auto& creds = boost::get<provider::PasswordCredentials>(ctx.credentials);
-        const auto credentials = QByteArray::fromStdString(creds.username + ":" +
-                                                           creds.password);
+        Q_UNUSED(ctx);
+        const auto credentials = QByteArrayLiteral("username:password");
         request.setRawHeader(QByteArrayLiteral("Authorization"),
                              QByteArrayLiteral("Basic ") + credentials.toBase64());
         return network_->sendCustomRequest(request, verb, data);
@@ -106,7 +105,6 @@ protected:
     void SetUp() override
     {
         dbus_env_.reset(new DBusEnvironment);
-        dbus_env_->start_services();
 
         tmp_dir_.reset(new QTemporaryDir(TEST_BIN_DIR "/dav-test.XXXXXX"));
         ASSERT_TRUE(tmp_dir_->isValid());
@@ -114,7 +112,7 @@ protected:
         dav_env_.reset(new DavEnvironment(tmp_dir_->path()));
         provider_env_.reset(new ProviderEnvironment(
                                 make_shared<TestDavProvider>(dav_env_->base_url()),
-                                1, *dbus_env_));
+                                *dbus_env_));
     }
 
     void TearDown() override

@@ -35,7 +35,6 @@ const auto OBJECT_PATH = QStringLiteral("/provider");
 }
 
 ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provider,
-                                         OnlineAccounts::AccountId account_id,
                                          DBusEnvironment const& dbus_env)
 {
     client_connection_.reset(new QDBusConnection(dbus_env.connection()));
@@ -43,11 +42,7 @@ ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provide
         QDBusConnection::connectToBus(dbus_env.busAddress(),
                                       SERVICE_CONNECTION_NAME)));
 
-    account_manager_.reset(new OnlineAccounts::Manager("", *server_connection_));
-    account_manager_->waitForReady();
-    OnlineAccounts::Account* account = account_manager_->account(account_id);
-    assert(account != nullptr);
-    server_.reset(new testing::TestServer(provider, account,
+    server_.reset(new testing::TestServer(provider, nullptr,
                                           *server_connection_,
                                           OBJECT_PATH.toStdString()));
 
@@ -62,7 +57,6 @@ ProviderEnvironment::~ProviderEnvironment()
     client_runtime_.reset();
 
     server_.reset();
-    account_manager_.reset();
 
     server_connection_.reset();
     QDBusConnection::disconnectFromBus(SERVICE_CONNECTION_NAME);

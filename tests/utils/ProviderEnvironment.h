@@ -20,7 +20,6 @@
 
 #include "DBusEnvironment.h"
 
-#include <OnlineAccounts/Manager>
 #include <QDBusConnection>
 #include <unity/storage/provider/testing/TestServer.h>
 #include <unity/storage/qt/Account.h>
@@ -32,7 +31,6 @@ class ProviderEnvironment
 {
 public:
     ProviderEnvironment(std::shared_ptr<unity::storage::provider::ProviderBase> const& provider,
-                        OnlineAccounts::AccountId account_id,
                         DBusEnvironment const& dbus_env);
     ~ProviderEnvironment();
 
@@ -41,7 +39,6 @@ public:
 private:
     std::unique_ptr<QDBusConnection> client_connection_;
     std::unique_ptr<QDBusConnection> server_connection_;
-    std::unique_ptr<OnlineAccounts::Manager> account_manager_;
     std::unique_ptr<unity::storage::provider::testing::TestServer> server_;
 
     std::unique_ptr<unity::storage::qt::Runtime> client_runtime_;
