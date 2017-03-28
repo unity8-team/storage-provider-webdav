@@ -18,8 +18,6 @@
 
 #pragma once
 
-#include "DBusEnvironment.h"
-
 #include <QDBusConnection>
 #include <unity/storage/provider/testing/TestServer.h>
 #include <unity/storage/qt/Account.h>
