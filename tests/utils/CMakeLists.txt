@@ -1,4 +1,4 @@
-pkg_check_modules(TESTUTILS_DEPS libqtdbustest-1 OnlineAccountsQt REQUIRED)
+pkg_check_modules(TESTUTILS_DEPS libqtdbustest-1 REQUIRED)
 
 add_library(testutils STATIC
   DBusEnvironment.cpp
