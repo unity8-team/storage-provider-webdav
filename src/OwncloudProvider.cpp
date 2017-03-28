@@ -43,8 +43,6 @@ QNetworkReply *OwncloudProvider::send_request(
     QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
     Context const& ctx) const
 {
-    Q_UNUSED(ctx);
-
     const auto& creds = boost::get<PasswordCredentials>(ctx.credentials);
     const auto credentials = QByteArray::fromStdString(creds.username + ":" +
                                                        creds.password);
