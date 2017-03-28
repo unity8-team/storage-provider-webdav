@@ -285,6 +285,28 @@ TEST_F(DavProviderTests, list)
     EXPECT_EQ(Item::File, items[3].type());
 }
 
+TEST_F(DavProviderTests, list_on_file_fails)
+{
+    auto account = get_client();
+    make_file("foo.txt");
+
+    unique_ptr<ItemJob> job(account.get("foo.txt"));
+    wait_for(job.get());
+    ASSERT_EQ(ItemJob::Finished, job->status())
+        << job->error().errorString().toStdString();
+
+    Item item = job->item();
+    unique_ptr<ItemListJob> list_job(item.list());
+    QList<Item> items = get_items(list_job.get());
+    ASSERT_EQ(ItemListJob::Error, list_job->status());
+
+    auto error = list_job->error();
+    EXPECT_EQ(StorageError::LogicError, error.type());
+    // TODO: currently this call is being failed within the client
+    // library rather than exercising the error path in the provider.
+    // EXPECT_EQ("foo.txt is not a folder", error.message());
+}
+
 TEST_F(DavProviderTests, lookup)
 {
     auto account = get_client();
