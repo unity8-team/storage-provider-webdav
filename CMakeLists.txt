@@ -16,8 +16,8 @@ find_package(Qt5DBus REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Test REQUIRED)
 find_package(Qt5Xml REQUIRED)
-pkg_check_modules(SF_PROVIDER REQUIRED storage-framework-provider-1>=0.2)
-pkg_check_modules(SF_CLIENT REQUIRED storage-framework-qt-client-2>=0.2)
+pkg_check_modules(SF_PROVIDER REQUIRED storage-framework-provider-1>=0.3)
+pkg_check_modules(SF_CLIENT REQUIRED storage-framework-qt-client-2>=0.3)
 
 add_definitions(-DQT_NO_KEYWORDS)
 
