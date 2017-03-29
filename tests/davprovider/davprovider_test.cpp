@@ -17,7 +17,6 @@
  */
 
 #include "../../src/DavProvider.h"
-#include <utils/DBusEnvironment.h>
 #include <utils/DavEnvironment.h>
 #include <utils/ProviderEnvironment.h>
 #include <testsetup.h>
@@ -88,9 +87,8 @@ public:
         QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
         provider::Context const& ctx) const override
     {
-        const auto& creds = boost::get<provider::PasswordCredentials>(ctx.credentials);
-        const auto credentials = QByteArray::fromStdString(creds.username + ":" +
-                                                           creds.password);
+        Q_UNUSED(ctx);
+        const auto credentials = QByteArrayLiteral("username:password");
         request.setRawHeader(QByteArrayLiteral("Authorization"),
                              QByteArrayLiteral("Basic ") + credentials.toBase64());
         return network_->sendCustomRequest(request, verb, data);
@@ -105,16 +103,12 @@ class DavProviderTests : public ::testing::Test
 protected:
     void SetUp() override
     {
-        dbus_env_.reset(new DBusEnvironment);
-        dbus_env_->start_services();
-
         tmp_dir_.reset(new QTemporaryDir(TEST_BIN_DIR "/dav-test.XXXXXX"));
         ASSERT_TRUE(tmp_dir_->isValid());
 
         dav_env_.reset(new DavEnvironment(tmp_dir_->path()));
         provider_env_.reset(new ProviderEnvironment(
-                                make_shared<TestDavProvider>(dav_env_->base_url()),
-                                1, *dbus_env_));
+                                make_shared<TestDavProvider>(dav_env_->base_url())));
     }
 
     void TearDown() override
@@ -122,7 +116,6 @@ protected:
         provider_env_.reset();
         dav_env_.reset();
         tmp_dir_.reset();
-        dbus_env_.reset();
     }
 
     Account get_client() const
@@ -167,7 +160,6 @@ protected:
     }
 
 private:
-    std::unique_ptr<DBusEnvironment> dbus_env_;
     std::unique_ptr<QTemporaryDir> tmp_dir_;
     std::unique_ptr<DavEnvironment> dav_env_;
     std::unique_ptr<ProviderEnvironment> provider_env_;

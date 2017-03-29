@@ -15,6 +15,7 @@ add_library(dav-provider-lib STATIC
   MetadataHandler.cpp
   RetrieveMetadataHandler.cpp
   RootsHandler.cpp
+  OwncloudProvider.cpp
 )
 target_compile_options(dav-provider-lib PUBLIC
   ${SF_PROVIDER_CFLAGS}
@@ -34,7 +35,6 @@ set_target_properties(dav-provider-lib PROPERTIES
 
 add_executable(storage-provider-owncloud
   main.cpp
-  OwncloudProvider.cpp
 )
 target_link_libraries(storage-provider-owncloud
   dav-provider-lib

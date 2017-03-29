@@ -18,6 +18,7 @@
 
 #include "ProviderEnvironment.h"
 
+#include <libqtdbustest/DBusTestRunner.h>
 #include <unity/storage/provider/ProviderBase.h>
 
 #include <cassert>
@@ -34,20 +35,15 @@ const auto OBJECT_PATH = QStringLiteral("/provider");
 
 }
 
-ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provider,
-                                         OnlineAccounts::AccountId account_id,
-                                         DBusEnvironment const& dbus_env)
+ProviderEnvironment::ProviderEnvironment(shared_ptr<ProviderBase> const& provider)
 {
-    client_connection_.reset(new QDBusConnection(dbus_env.connection()));
+    runner_.reset(new QtDBusTest::DBusTestRunner());
+    client_connection_.reset(new QDBusConnection(runner_->sessionConnection()));
     server_connection_.reset(new QDBusConnection(
-        QDBusConnection::connectToBus(dbus_env.busAddress(),
+        QDBusConnection::connectToBus(runner_->sessionBus(),
                                       SERVICE_CONNECTION_NAME)));
 
-    account_manager_.reset(new OnlineAccounts::Manager("", *server_connection_));
-    account_manager_->waitForReady();
-    OnlineAccounts::Account* account = account_manager_->account(account_id);
-    assert(account != nullptr);
-    server_.reset(new testing::TestServer(provider, account,
+    server_.reset(new testing::TestServer(provider, nullptr,
                                           *server_connection_,
                                           OBJECT_PATH.toStdString()));
 
@@ -62,11 +58,11 @@ ProviderEnvironment::~ProviderEnvironment()
     client_runtime_.reset();
 
     server_.reset();
-    account_manager_.reset();
 
     server_connection_.reset();
     QDBusConnection::disconnectFromBus(SERVICE_CONNECTION_NAME);
     client_connection_.reset();
+    runner_.reset();
 }
 
 Account ProviderEnvironment::get_client() const
