@@ -1,5 +1,16 @@
-storage-provider-webdav (0.1-0ubuntu1) UNRELEASED; urgency=medium
+storage-provider-webdav (0.1+17.04.20170213.1-0ubuntu1) zesty; urgency=medium
 
+  * Fix to use the host included in credentials when building the
+    base_url.
+
+ -- Xavi Garcia <xavi.garcia.mena@canonical.com>  Mon, 13 Feb 2017 08:57:50 +0000
+
+storage-provider-webdav (0.1+17.04.20161128-0ubuntu1) zesty; urgency=medium
+
+  [ James Henstridge ]
   * Initial release.
 
- -- James Henstridge <james.henstridge@canonical.com>  Wed, 14 Sep 2016 11:05:11 +0800
+  [ James Henstridge, Tarmac ]
+  * Merge lp:storage-provider-webdav/devel r22 to trunk.
+
+ -- Xavi Garcia <xavi.garcia.mena@canonical.com>  Mon, 28 Nov 2016 07:45:51 +0000
