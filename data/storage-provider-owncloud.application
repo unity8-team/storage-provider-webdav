@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- -*- mode: nxml -*- -->
 <application id="storage-provider-owncloud">
-  <description>OwnCloud storage provider</description>
+  <description>ownCloud storage provider</description>
   <desktop-entry>storage-provider-owncloud.desktop</desktop-entry>
 
   <services>
     <service id="storage-provider-owncloud">
-      <description>Access your Owncloud documents</description>
+      <description>Access your ownCloud documents</description>
     </service>
   </services>
 </application>
