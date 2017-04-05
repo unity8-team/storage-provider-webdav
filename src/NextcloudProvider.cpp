@@ -48,8 +48,6 @@ QNetworkReply *NextcloudProvider::send_request(
                                                        creds.password);
     request.setRawHeader(QByteArrayLiteral("Authorization"),
                          QByteArrayLiteral("Basic ") + credentials.toBase64());
-    printf("Sending request to %s with credentials %s\n",
-           request.url().toEncoded().constData(), credentials.constData());
     QNetworkReply *reply = network_->sendCustomRequest(request, verb, data);
     return reply;
 }
