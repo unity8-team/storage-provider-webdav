@@ -30,3 +30,19 @@ install(
     ${CMAKE_CURRENT_BINARY_DIR}/dbus/com.canonical.StorageFramework.Provider.OwnCloud.service
   DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services
 )
+
+# Systemd unit files
+configure_file(
+  systemd/storage-provider-nextcloud.service.in
+  systemd/storage-provider-nextcloud.service
+)
+configure_file(
+  systemd/storage-provider-owncloud.service.in
+  systemd/storage-provider-owncloud.service
+)
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/systemd/storage-provider-nextcloud.service
+    ${CMAKE_CURRENT_BINARY_DIR}/systemd/storage-provider-owncloud.service
+  DESTINATION "lib/systemd/user"
+)

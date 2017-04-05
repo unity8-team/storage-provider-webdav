@@ -1,0 +1,7 @@
+[Unit]
+Description=ownCloud storage provider
+
+[Service]
+Type=dbus
+BusName=com.canonical.StorageFramework.Provider.OwnCloud
+ExecStart=@CMAKE_INSTALL_FULL_LIBDIR@/@PROJECT_NAME@/storage-provider-owncloud

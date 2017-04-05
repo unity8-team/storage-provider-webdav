@@ -1,4 +1,5 @@
 usr/lib/*/storage-provider-webdav/storage-provider-nextcloud
+usr/lib/systemd/user/storage-provider-nextcloud.service
 usr/share/accounts/*/storage-provider-nextcloud.*
 usr/share/applications/storage-provider-nextcloud.desktop
 usr/share/dbus-1/services/com.canonical.StorageFramework.Provider.Nextcloud.service
