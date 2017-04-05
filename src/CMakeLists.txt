@@ -15,7 +15,7 @@ add_library(dav-provider-lib STATIC
   MetadataHandler.cpp
   RetrieveMetadataHandler.cpp
   RootsHandler.cpp
-  OwncloudProvider.cpp
+  NextcloudProvider.cpp
 )
 target_compile_options(dav-provider-lib PUBLIC
   ${SF_PROVIDER_CFLAGS}

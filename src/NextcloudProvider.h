@@ -20,11 +20,11 @@
 
 #include "DavProvider.h"
 
-class OwncloudProvider : public DavProvider
+class NextcloudProvider : public DavProvider
 {
 public:
-    OwncloudProvider();
-    virtual ~OwncloudProvider();
+    NextcloudProvider();
+    virtual ~NextcloudProvider();
 
     QUrl base_url(
         unity::storage::provider::Context const& ctx) const override;
