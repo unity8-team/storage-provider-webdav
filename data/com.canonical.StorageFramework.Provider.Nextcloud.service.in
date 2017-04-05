@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.canonical.StorageFramework.Provider.Nextcloud
+Exec=@CMAKE_INSTALL_FULL_LIBDIR@/@PROJECT_NAME@/storage-provider-nextcloud

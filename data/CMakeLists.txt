@@ -1,4 +1,11 @@
 # OnlineAccounts support files
+install(FILES storage-provider-nextcloud.service
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/accounts/services")
+install(FILES storage-provider-nextcloud.application
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/accounts/applications")
+install(FILES storage-provider-nextcloud.desktop
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+
 install(FILES storage-provider-owncloud.service
   DESTINATION "${CMAKE_INSTALL_DATADIR}/accounts/services")
 install(FILES storage-provider-owncloud.application
@@ -7,6 +14,15 @@ install(FILES storage-provider-owncloud.desktop
   DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
 
 # D-Bus serice activation
+configure_file(
+  com.canonical.StorageFramework.Provider.Nextcloud.service.in
+  com.canonical.StorageFramework.Provider.Nextcloud.service
+)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/com.canonical.StorageFramework.Provider.Nextcloud.service
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services
+)
+
 configure_file(
   com.canonical.StorageFramework.Provider.OwnCloud.service.in
   com.canonical.StorageFramework.Provider.OwnCloud.service
