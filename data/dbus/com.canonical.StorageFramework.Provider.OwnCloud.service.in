@@ -1,3 +1,4 @@
 [D-BUS Service]
 Name=com.canonical.StorageFramework.Provider.OwnCloud
 Exec=@CMAKE_INSTALL_FULL_LIBDIR@/@PROJECT_NAME@/storage-provider-owncloud
+SystemdService=storage-provider-owncloud.service

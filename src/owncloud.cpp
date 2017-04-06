@@ -16,19 +16,20 @@
  * Authored by: James Henstridge <james.henstridge@canonical.com>
  */
 
-#pragma once
+#include <unity/storage/provider/Server.h>
 
-#include "DavProvider.h"
+#include "NextcloudProvider.h"
 
-class OwncloudProvider : public DavProvider
+using namespace std;
+using namespace unity::storage::provider;
+
+int main(int argc, char **argv)
 {
-public:
-    OwncloudProvider();
-    virtual ~OwncloudProvider();
+    string const bus_name = "com.canonical.StorageFramework.Provider.OwnCloud";
+    string const account_service_id = "storage-provider-owncloud";
 
-    QUrl base_url(
-        unity::storage::provider::Context const& ctx) const override;
-    QNetworkReply *send_request(
-        QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
-        unity::storage::provider::Context const& ctx) const override;
-};
+    Server<NextcloudProvider> server(bus_name, account_service_id);
+    server.init(argc, argv);
+    server.run();
+    return 0;
+}

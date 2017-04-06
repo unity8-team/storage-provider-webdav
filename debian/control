@@ -24,6 +24,16 @@ Homepage: https://launchpad.net/storage-provider-webdav
 # upstream branch
 Vcs-Bzr: lp:storage-provider-webdav
 
+Package: storage-provider-nextcloud
+Architecture: any
+Multi-Arch: foreign
+Pre-Depends: ${misc:Pre-Depends},
+Depends: account-plugin-nextcloud,
+         ${misc:Depends},
+         ${shlibs:Depends},
+Description: Nextcloud plugin for Storage Framework
+ A Storage Framework plugin providing access to Nextcloud servers.
+
 Package: storage-provider-owncloud
 Architecture: any
 Multi-Arch: foreign

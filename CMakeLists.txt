@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(storage-provider-webdav VERSION "0.1")
+project(storage-provider-webdav VERSION "0.2")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -pedantic -Wextra -fvisibility=hidden")
 
 include(CTest)
-include(EnableCoverageReport)
 include(FindPkgConfig)
 include(GNUInstallDirs)
 
@@ -25,9 +24,11 @@ add_subdirectory(src)
 add_subdirectory(data)
 add_subdirectory(tests)
 
+find_package(CoverageReport)
 enable_coverage_report(
   TARGETS
     dav-provider-lib
+    storage-provider-nextcloud
     storage-provider-owncloud
   FILTER
     ${CMAKE_SOURCE_DIR}/tests/*

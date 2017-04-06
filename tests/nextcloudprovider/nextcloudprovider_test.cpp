@@ -16,7 +16,7 @@
  * Authored by: James Henstridge <james.henstridge@canonical.com>
  */
 
-#include "../../src/OwncloudProvider.h"
+#include "../../src/NextcloudProvider.h"
 
 #include <gtest/gtest.h>
 #include <QCoreApplication>
@@ -26,21 +26,21 @@
 namespace provider = unity::storage::provider;
 
 
-TEST(OwncloudProviderTests, base_url)
+TEST(NextcloudProviderTests, base_url)
 {
     provider::PasswordCredentials credentials;
     credentials.username = "username";
     credentials.password = "password";
-    credentials.host = "http://example.com/owncloud/";
+    credentials.host = "http://example.com/nextcloud/";
 
     provider::Context context;
     context.uid = 0;
     context.pid = 0;
     context.credentials = credentials;
 
-    OwncloudProvider provider;
+    NextcloudProvider provider;
     auto url = provider.base_url(context).toEncoded().toStdString();
-    EXPECT_EQ("http://example.com/owncloud/remote.php/dav/files/username/", url);
+    EXPECT_EQ("http://example.com/nextcloud/remote.php/dav/files/username/", url);
 }
 
 int main(int argc, char**argv)

@@ -15,7 +15,7 @@ add_library(dav-provider-lib STATIC
   MetadataHandler.cpp
   RetrieveMetadataHandler.cpp
   RootsHandler.cpp
-  OwncloudProvider.cpp
+  NextcloudProvider.cpp
 )
 target_compile_options(dav-provider-lib PUBLIC
   ${SF_PROVIDER_CFLAGS}
@@ -33,14 +33,23 @@ set_target_properties(dav-provider-lib PROPERTIES
   AUTOMOC TRUE
 )
 
+add_executable(storage-provider-nextcloud
+  nextcloud.cpp
+)
+target_link_libraries(storage-provider-nextcloud
+  dav-provider-lib
+)
+
 add_executable(storage-provider-owncloud
-  main.cpp
+  owncloud.cpp
 )
 target_link_libraries(storage-provider-owncloud
   dav-provider-lib
 )
 
 install(
-  TARGETS storage-provider-owncloud
+  TARGETS
+    storage-provider-nextcloud
+    storage-provider-owncloud
   RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}"
 )

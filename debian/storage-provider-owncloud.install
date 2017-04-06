@@ -1,0 +1,5 @@
+usr/lib/*/storage-provider-webdav/storage-provider-owncloud
+usr/lib/systemd/user/storage-provider-owncloud.service
+usr/share/accounts/*/storage-provider-owncloud.*
+usr/share/applications/storage-provider-owncloud.desktop
+usr/share/dbus-1/services/com.canonical.StorageFramework.Provider.OwnCloud.service

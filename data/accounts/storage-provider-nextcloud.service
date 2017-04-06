@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- -*- mode: nxml -*- -->
+<service id="storage-provider-nextcloud">
+  <type>storage-provider</type>
+  <name>Nextcloud storage provider</name>
+  <icon>online-accounts-nextcloud</icon>
+  <provider>nextcloud</provider>
+</service>

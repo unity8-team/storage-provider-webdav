@@ -16,7 +16,7 @@
  * Authored by: James Henstridge <james.henstridge@canonical.com>
  */
 
-#include "OwncloudProvider.h"
+#include "NextcloudProvider.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
@@ -25,13 +25,13 @@
 using namespace std;
 using namespace unity::storage::provider;
 
-OwncloudProvider::OwncloudProvider()
+NextcloudProvider::NextcloudProvider()
 {
 }
 
-OwncloudProvider::~OwncloudProvider() = default;
+NextcloudProvider::~NextcloudProvider() = default;
 
-QUrl OwncloudProvider::base_url(Context const& ctx) const
+QUrl NextcloudProvider::base_url(Context const& ctx) const
 {
     const auto& creds = boost::get<PasswordCredentials>(ctx.credentials);
     // get the host, removing any '/' at the end
@@ -39,7 +39,7 @@ QUrl OwncloudProvider::base_url(Context const& ctx) const
     return QUrl(QStringLiteral("%1/remote.php/dav/files/%2/").arg(host).arg(QString::fromStdString(creds.username)));
 }
 
-QNetworkReply *OwncloudProvider::send_request(
+QNetworkReply *NextcloudProvider::send_request(
     QNetworkRequest& request, QByteArray const& verb, QIODevice* data,
     Context const& ctx) const
 {
@@ -48,8 +48,6 @@ QNetworkReply *OwncloudProvider::send_request(
                                                        creds.password);
     request.setRawHeader(QByteArrayLiteral("Authorization"),
                          QByteArrayLiteral("Basic ") + credentials.toBase64());
-    printf("Sending request to %s with credentials %s\n",
-           request.url().toEncoded().constData(), credentials.constData());
     QNetworkReply *reply = network_->sendCustomRequest(request, verb, data);
     return reply;
 }

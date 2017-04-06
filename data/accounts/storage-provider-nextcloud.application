@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- -*- mode: nxml -*- -->
+<application id="storage-provider-nextcloud">
+  <description>Nextcloud storage provider</description>
+  <desktop-entry>storage-provider-nextcloud.desktop</desktop-entry>
+
+  <services>
+    <service id="storage-provider-nextcloud">
+      <description>Access your Nextcloud documents</description>
+    </service>
+  </services>
+</application>

@@ -1,0 +1,7 @@
+[Unit]
+Description=Nextcloud storage provider
+
+[Service]
+Type=dbus
+BusName=com.canonical.StorageFramework.Provider.Nextcloud
+ExecStart=@CMAKE_INSTALL_FULL_LIBDIR@/@PROJECT_NAME@/storage-provider-nextcloud

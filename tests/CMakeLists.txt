@@ -10,7 +10,7 @@ set(unit_test_dirs
   item_id
   davprovider
   http_error
-  owncloudprovider
+  nextcloudprovider
 )
 
 set(UNIT_TEST_TARGETS "")
